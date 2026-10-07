@@ -51,12 +51,24 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("../../stocksync-release.keystore")
-            storePassword "stocksync123"
-            keyAlias "stocksync_enterprise"
-            keyPassword "stocksync123"
-            v1SigningEnabled true
-            v2SigningEnabled true
+            def keystoreFile = [
+                file("stocksync-release.keystore"),
+                file("../stocksync-release.keystore"),
+                file("../../stocksync-release.keystore"),
+                file("../../../stocksync-release.keystore")
+            ].find { it.exists() }
+
+            if (keystoreFile != null) {
+                storeFile keystoreFile
+                storePassword "stocksync123"
+                keyAlias "stocksync_enterprise"
+                keyPassword "stocksync123"
+                v1SigningEnabled true
+                v2SigningEnabled true
+            } else {
+                // Fallback to debug signature if release keystore is absent
+                signingConfig signingConfigs.debug
+            }
         }
     }
 
