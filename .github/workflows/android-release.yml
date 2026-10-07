@@ -65,7 +65,7 @@ jobs:
       - name: 7. Build Android Release APK
         working-directory: ./mobile-flutter
         run: |
-          flutter build apk --release
+          flutter build apk --release --no-tree-shake-icons
 
       - name: 8. Prepare APK Output Files
         run: |
@@ -98,6 +98,7 @@ jobs:
             Ứng dụng Quét mã vạch / QR Kho linh kiện xác & đồng bộ Real-time.
             
             ### ✨ Tính năng & Cải tiến v1.1.6:
+            - **Cấu hình AndroidX & Gradle 8.5**: Đã cấu hình chuẩn hóa hoàn toàn AndroidX (`gradle.properties`, `settings.gradle`, Android Gradle Plugin 8.2.2).
             - **Chuẩn hóa chữ ký số**: Tích hợp Keystore Enterprise (RSA 2048-bit, Schemes v1+v2+v3), loại bỏ triệt để lỗi phân tích cú pháp (Parse Error) và cảnh báo Play Protect.
             - **Tự động cập nhật**: So khớp phiên bản qua GitHub Releases REST API và tự động tải/kích hoạt cài đè an toàn.
             - **Quét Camera tốc độ cao**: Tối ưu thư viện `mobile_scanner` quét mã QR/Barcode cực nhạy và đồng bộ ngay lập tức tới máy tính và server.

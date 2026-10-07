@@ -123,7 +123,7 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('StockSync Scanner v1.1.5', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('StockSync Scanner v1.1.6', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
         actions: [
