@@ -34,10 +34,10 @@ cat << 'XML' > "$WORK"/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.stocksync.app"
-    android:versionCode="5"
-    android:versionName="1.0.5">
+    android:versionCode="6"
+    android:versionName="1.0.6">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="23" />
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="28" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -206,9 +206,9 @@ echo "9. DEXing..."
 java -jar "$DX_JAR" --dex --output="$WORK"/bin/classes.dex "$WORK"/bin
 
 echo "10. Packaging APK with embedded assets..."
-aapt package -f -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -A "$WORK"/assets -I "$ANDROID_JAR" -F "$WORK"/bin/unaligned.apk
+aapt package -f -0 "" -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -A "$WORK"/assets -I "$ANDROID_JAR" -F "$WORK"/bin/unaligned.apk
 cd "$WORK"/bin
-aapt add unaligned.apk classes.dex
+aapt add -0 dex unaligned.apk classes.dex
 
 echo "11. Zipalign (before apksigner)..."
 zipalign -f -p 4 "$WORK"/bin/unaligned.apk "$WORK"/bin/aligned.apk
