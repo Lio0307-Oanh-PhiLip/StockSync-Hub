@@ -117,7 +117,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Bản v1.2.3 (Final Fix - Khắc phục 100% lỗi cài đặt)
+                    Bản v1.2.5 (Final Stable Build)
                   </span>
                   <span className="text-[11px] text-slate-500">Dung length: ~1.8 MB</span>
                 </div>
@@ -130,7 +130,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
               className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>{downloadUrl ? 'Tải Ngay StockSync.apk (v1.2.3)' : 'Đang lấy link tải mới nhất...'}</span>
+              <span>{downloadUrl ? 'Tải Ngay StockSync.apk (v1.2.5)' : 'Đang lấy link tải mới nhất...'}</span>
             </a>
 
             <div className="mt-2.5 p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-1">

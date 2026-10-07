@@ -16,7 +16,7 @@ export const UpdateChecker: React.FC = () => {
 
   // GitHub Repository Configuration
   const GITHUB_REPO = "philiptrinh1990/stocksync-hub"; 
-  const CURRENT_VERSION = "1.2.3";
+  const CURRENT_VERSION = "1.2.6";
 
   useEffect(() => {
     checkForUpdates();
@@ -147,7 +147,7 @@ export const UpdateChecker: React.FC = () => {
 
               <div className="p-3 bg-slate-800 rounded-xl border border-slate-700 text-[11px] space-y-1">
                 <p className="font-semibold text-slate-200">💡 Mẹo cho máy báo "Ứng dụng chưa được cài đặt" hoặc "Lỗi phân tích cú pháp":</p>
-                <p>Nếu bạn đã cài phiên bản cũ từ trước, hãy <b>Gỡ cài đặt (Uninstall) bản cũ</b> trước khi bấm cài bản mới v1.2.3. Bản v1.2.3 đã được đổi ID ứng dụng sang <b>com.stocksync.app</b> để đảm bảo cài đặt thành công 100%.</p>
+                <p>Nếu bạn đã cài phiên bản cũ từ trước, hãy <b>Gỡ cài đặt (Uninstall) bản cũ</b> trước khi bấm cài bản mới v1.2.5. Bản v1.2.5 đã được build chuẩn hóa 100%.</p>
               </div>
             </div>
 

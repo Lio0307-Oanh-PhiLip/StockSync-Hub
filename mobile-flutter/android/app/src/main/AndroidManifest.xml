@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.stocksync.app">
+    package="com.stocksync.hub.scanner">
 
     <!-- Quyền Camera phục vụ quét mã vạch / QR tốc độ cao -->
     <uses-permission android:name="android.permission.CAMERA" />

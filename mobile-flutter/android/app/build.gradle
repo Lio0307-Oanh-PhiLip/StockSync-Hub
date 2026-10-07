@@ -41,11 +41,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.stocksync.app"
+        applicationId "com.stocksync.hub.scanner"
         minSdkVersion 21
-        targetSdkVersion 34
-        versionCode 123
-        versionName "1.2.3"
+        targetSdkVersion 31
+        versionCode 126
+        versionName "1.2.6"
         multiDexEnabled true
     }
 

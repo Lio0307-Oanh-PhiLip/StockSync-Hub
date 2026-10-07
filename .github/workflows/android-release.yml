@@ -68,7 +68,7 @@ jobs:
       - name: 7. Build Android Release APK
         working-directory: ./mobile-flutter
         run: |
-          flutter build apk --release --no-tree-shake-icons --build-name=1.2.3 --build-number=123
+          flutter build apk --release --no-tree-shake-icons --build-name=1.2.6 --build-number=126
 
       - name: 8. Prepare APK Output Files
         run: |
@@ -76,10 +76,10 @@ jobs:
           # Copy universal APK from Flutter build directory
           if [ -f "mobile-flutter/build/app/outputs/flutter-apk/app-release.apk" ]; then
             cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync.apk
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.2.3.apk
+            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.2.6.apk
           elif [ -f "public/StockSync.apk" ]; then
             cp public/StockSync.apk release-output/StockSync.apk
-            cp public/StockSync.apk release-output/StockSync-v1.2.3.apk
+            cp public/StockSync.apk release-output/StockSync-v1.2.6.apk
           fi
           ls -la release-output/
 
@@ -93,17 +93,16 @@ jobs:
       - name: 10. Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.3' }}
-          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.3' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.6' }}
+          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.6' }}
           body: |
-            ## 📱 StockSync Scanner APK - Official Release v1.2.3
+            ## 📱 StockSync Scanner APK - Official Release v1.2.6
             
             Ứng dụng Quét mã vạch / QR Kho linh kiện xác & đồng bộ Real-time.
             
-            ### ✨ Tính năng & Cải tiến v1.2.3:
-            - **BẢN FIX CUỐI CÙNG**: Chuyển đổi sang Package chuẩn `com.stocksync.app` và đồng bộ 100% tệp Kotlin.
-            - **Khắc phục lỗi Phân tích gói**: Tối ưu hóa cấu trúc tệp XML Manifest và Gradle.
-            - **Chữ ký số đa nền tảng**: Kích hoạt V1+V2+V3+V4 Signing Schemes để vượt qua mọi hàng rào bảo mật Android.
+            ### ✨ Tính năng & Cải tiến v1.2.6:
+            - **ỔN ĐỊNH TỐI ĐA (FIX PARSE ERROR)**: Vô hiệu hóa Signing Scheme V3/V4 để tương thích với tất cả phiên bản Android.
+            - **Chuẩn hóa Package**: Sử dụng ID `com.stocksync.app`.
             - **Đồng bộ Real-time**: Kết nối WebSocket thông suốt với PC.
             
             ### 📥 Hướng dẫn cài đặt APK trên điện thoại:
