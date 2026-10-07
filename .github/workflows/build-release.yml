@@ -38,7 +38,7 @@ jobs:
           ./node_modules/.bin/vite build
           ./node_modules/.bin/esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
 
-      - name: Build Android APK (v1.1.1)
+      - name: Build Android APK (v1.1.2)
         run: |
           chmod +x ./scripts/build-apk.sh
           ./scripts/build-apk.sh
@@ -54,7 +54,7 @@ jobs:
           mkdir -p build-deb/usr/local/bin build-deb/DEBIAN
           cat << 'EOF' > build-deb/DEBIAN/control
           Package: stocksync-hub
-          Version: 1.1.1
+          Version: 1.1.2
           Section: utils
           Priority: optional
           Architecture: all
@@ -62,7 +62,7 @@ jobs:
           Description: StockSync Hub - Kho Xac Linh Kien & Quan Ly Kiem Ke
           EOF
           cp -r dist build-deb/usr/local/bin/stocksync-dist
-          dpkg-deb --build build-deb stocksync-hub_1.1.1_all.deb
+          dpkg-deb --build build-deb stocksync-hub_1.1.2_all.deb
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -70,24 +70,24 @@ jobs:
           name: release-artifacts
           path: |
             public/StockSync.apk
-            stocksync-hub_1.1.1_all.deb
+            stocksync-hub_1.1.2_all.deb
             stocksync-windows-x64.zip
 
       - name: Auto-Release to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.1.1
-          name: 'StockSync Hub v1.1.1 (Auto-Release)'
+          tag_name: v1.1.2
+          name: 'StockSync Hub v1.1.2 (Auto-Release)'
           body: |
-            Tự động xuất xưởng các định dạng tệp cho phiên bản v1.1.1:
-            - 📱 **StockSync.apk**: Ứng dụng Android (Tương thích Android 5.0 - 14+, Uncompressed DEX, Chữ ký số Release chuẩn).
-            - 🐧 **stocksync-hub_1.1.1_all.deb**: Gói cài đặt Debian / Ubuntu Linux.
-            - 🪟 **stocksync-windows-x64.zip**: Gói nén di động Windows (.exe / Node.js bundle).
+            Tự động xuất xưởng các định dạng tệp cho phiên bản v1.1.2:
+            - 📱 **StockSync.apk**: Ứng dụng Android (Tương thích Android 5.0 - 14+, Chữ ký chuẩn, Auto-locate SDK).
+            - 🐧 **stocksync-hub_1.1.2_all.deb**: Gói cài đặt Debian / Ubuntu Linux.
+            - 🪟 **stocksync-windows-x64.zip**: Gói nén di động Windows.
           draft: false
           prerelease: false
           files: |
             public/StockSync.apk
-            stocksync-hub_1.1.1_all.deb
+            stocksync-hub_1.1.2_all.deb
             stocksync-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

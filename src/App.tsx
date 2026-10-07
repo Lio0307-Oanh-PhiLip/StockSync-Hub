@@ -36,6 +36,7 @@ import { UnscannedModal } from './components/UnscannedModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { InventoryReportModal } from './components/InventoryReportModal';
 import { SyncManagerModal } from './components/SyncManagerModal';
+import { UpdateChecker } from './components/UpdateChecker';
 
 export default function App() {
   const [scCode, setScCode] = useState<string>('VN001021');
@@ -765,6 +766,8 @@ export default function App() {
             }));
           }}
         />
+
+        <UpdateChecker />
 
       </div>
     </div>
