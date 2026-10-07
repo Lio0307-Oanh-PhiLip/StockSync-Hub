@@ -123,7 +123,7 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('StockSync Scanner v1.1.7', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('StockSync Scanner v1.1.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
         actions: [
@@ -177,7 +177,7 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Lịch sử quét:', style: TextStyle(fontWeight: FontWeight.bold)),
                       Row(

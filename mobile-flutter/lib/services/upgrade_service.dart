@@ -16,7 +16,7 @@ class UpgradeService {
   static Future<void> checkForUpdate(BuildContext context, {bool silent = false}) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.1.7";
+      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.1.8";
 
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
@@ -217,7 +217,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                 ),
               )
             ] else ...[
-              const Text('Bản cập nhật v1.1.7 đã khắc phục hoàn toàn lỗi cài đặt trên smartphone và tối ưu camera quét QR kho xác.'),
+              const Text('Bản cập nhật v1.1.8 đã khắc phục hoàn toàn lỗi cài đặt trên smartphone và tối ưu camera quét QR kho xác.'),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -225,7 +225,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('💡 Mẹo: Nếu đang có phiên bản cũ bị lỗi cài đè, bạn có thể gỡ bản cũ trước khi cài bản v1.1.7.', style: TextStyle(fontSize: 11, color: Colors.black87)),
+                child: const Text('💡 Mẹo: Nếu đang có phiên bản cũ bị lỗi cài đè, bạn có thể gỡ bản cũ trước khi cài bản v1.1.8.', style: TextStyle(fontSize: 11, color: Colors.black87)),
               )
             ],
           ],

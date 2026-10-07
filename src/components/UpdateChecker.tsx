@@ -16,7 +16,7 @@ export const UpdateChecker: React.FC = () => {
 
   // GitHub Repository Configuration
   const GITHUB_REPO = "philiptrinh1990/stocksync-hub"; 
-  const CURRENT_VERSION = "1.1.7";
+  const CURRENT_VERSION = "1.1.8";
 
   useEffect(() => {
     checkForUpdates();
