@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StockSync" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>StockSync Hub - Kiểm Tra Xác Linh Kiện & Quét Mã Vạch</title>
+    <meta name="description" content="Ứng dụng kiểm tra xác linh kiện kho (IW/OOW), tích hợp quét mã vạch/QR bằng camera và báo cáo tồn kho tự động." />
+    <meta property="og:title" content="StockSync Hub - Kiểm Tra Xác Linh Kiện & Quét Mã Vạch" />
+    <meta property="og:description" content="Ứng dụng kiểm tra xác linh kiện kho (IW/OOW), tích hợp quét mã vạch/QR bằng camera và báo cáo tồn kho tự động." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function(reg) {
+              console.log('StockSync SW registered:', reg.scope);
+            })
+            .catch(function(err) {
+              console.warn('StockSync SW failed:', err);
+            });
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

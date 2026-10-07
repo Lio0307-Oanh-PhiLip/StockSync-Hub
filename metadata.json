@@ -1,0 +1,6 @@
+{
+  "name": "StockSync Hub - Kiểm Tra Xác Linh Kiện & Quét Mã Vạch",
+  "description": "Ứng dụng kiểm tra xác linh kiện kho (IW/OOW), tích hợp quét mã vạch/QR bằng camera và báo cáo tồn kho tự động.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
