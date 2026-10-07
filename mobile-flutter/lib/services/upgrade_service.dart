@@ -16,7 +16,7 @@ class UpgradeService {
   static Future<void> checkForUpdate(BuildContext context, {bool silent = false}) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version;
+      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.1.5";
 
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
@@ -26,7 +26,7 @@ class UpgradeService {
 
       if (response.statusCode != 200) {
         if (!silent) {
-          _showSnackBar(context, 'Không thể kiểm tra bản cập nhật (Mã lỗi: ${response.statusCode})');
+          _showSnackBar(context, 'Không thể kiểm tra bản cập nhật (Mã phản hồi: ${response.statusCode})');
         }
         return;
       }
@@ -47,7 +47,7 @@ class UpgradeService {
       if (_isVersionNewer(latestTag, currentVersion) && apkDownloadUrl != null) {
         _showUpdateDialog(context, currentVersion, latestTag, apkDownloadUrl);
       } else if (!silent) {
-        _showSnackBar(context, 'Bạn đang sử dụng phiên bản mới nhất ($currentVersion)');
+        _showSnackBar(context, 'Bạn đang sử dụng phiên bản mới nhất (v$currentVersion)');
       }
     } catch (e) {
       if (!silent) {
@@ -56,7 +56,7 @@ class UpgradeService {
     }
   }
 
-  /// So khớp logic Semantic Versioning (vd: 1.1.4 > 1.1.3)
+  /// So khớp logic Semantic Versioning (vd: 1.1.5 > 1.1.4)
   static bool _isVersionNewer(String latest, String current) {
     try {
       List<int> l = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
@@ -114,15 +114,17 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
   bool isDownloading = false;
   double progress = 0.0;
   String statusText = '';
+  bool showPlayProtectNotice = false;
 
   Future<void> _startDownloadAndInstall() async {
     setState(() {
       isDownloading = true;
-      statusText = 'Đang chuẩn bị tải...';
+      statusText = 'Đang chuẩn bị kết nối...';
+      showPlayProtectNotice = true;
     });
 
     try {
-      // Yêu cầu quyền cài đặt ứng dụng không rõ nguồn gốc (Android 8+)
+      // Yêu cầu quyền cài đặt ứng dụng (Android 8+)
       if (Platform.isAndroid) {
         final installStatus = await Permission.requestInstallPackages.status;
         if (!installStatus.isGranted) {
@@ -133,7 +135,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
       final Directory tempDir = await getTemporaryDirectory();
       final String savePath = '${tempDir.path}/StockSync_v${widget.latestVersion}.apk';
 
-      // Xóa tệp cũ nếu đã tồn tại
+      // Xóa file cũ nếu đã tồn tại để tránh xung đột
       final File existingFile = File(savePath);
       if (await existingFile.exists()) {
         await existingFile.delete();
@@ -147,18 +149,18 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
           if (total != -1) {
             setState(() {
               progress = received / total;
-              statusText = 'Đã tải: ${(progress * 100).toStringAsFixed(1)}%';
+              statusText = 'Đang tải: ${(progress * 100).toStringAsFixed(1)}% (${(received / 1048576).toStringAsFixed(1)} MB)';
             });
           }
         },
       );
 
       setState(() {
-        statusText = 'Tải xong! Đang mở trình cài đặt...';
+        statusText = 'Tải xong! Đang khởi chạy trình cài đặt Android...';
       });
 
       // Kích hoạt trình cài đặt gói mặc định của Android
-      final result = await OpenFilex.open(
+      await OpenFilex.open(
         savePath,
         type: "application/vnd.android.package-archive",
       );
@@ -169,7 +171,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     } catch (e) {
       setState(() {
         isDownloading = false;
-        statusText = 'Lỗi tải cập nhật: $e';
+        statusText = 'Lỗi trong quá trình tải: $e';
       });
     }
   }
@@ -182,23 +184,52 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
         children: const [
           Icon(Icons.system_update_rounded, color: Colors.blueAccent),
           SizedBox(width: 8),
-          Text('Cập nhật ứng dụng', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('Cập nhật StockSync', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Đã có phiên bản mới: v${widget.latestVersion}'),
-          Text('Phiên bản hiện tại: v${widget.currentVersion}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 16),
-          if (isDownloading) ...[
-            LinearProgressIndicator(value: progress, minHeight: 8, borderRadius: BorderRadius.circular(4)),
-            const SizedBox(height: 8),
-            Text(statusText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ] else
-            const Text('Bạn có muốn tải và cài đặt bản cập nhật này ngay bây giờ?'),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Đã có bản phát hành: v${widget.latestVersion}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+            Text('Phiên bản trên máy: v${widget.currentVersion}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 12),
+            if (isDownloading) ...[
+              LinearProgressIndicator(value: progress, minHeight: 8, borderRadius: BorderRadius.circular(4), color: Colors.blueAccent),
+              const SizedBox(height: 8),
+              Text(statusText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('🛡️ Lưu ý Google Play Protect:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    SizedBox(height: 4),
+                    Text('Nếu Android hiện cảnh báo "Bị chặn bởi Play Protect", hãy bấm "Chi tiết khác" -> "Vẫn cài đặt" để tiếp tục.', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
+              )
+            ] else ...[
+              const Text('Bản cập nhật v1.1.5 đã khắc phục hoàn toàn lỗi cài đặt trên smartphone và tối ưu camera quét QR kho xác.'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('💡 Mẹo: Nếu đang có phiên bản cũ bị lỗi cài đè, bạn có thể gỡ bản cũ trước khi cài bản v1.1.5.', style: TextStyle(fontSize: 11, color: Colors.black87)),
+              )
+            ],
+          ],
+        ),
       ),
       actions: [
         if (!isDownloading) ...[
@@ -209,7 +240,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
           ElevatedButton(
             onPressed: _startDownloadAndInstall,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-            child: const Text('Cập nhật ngay'),
+            child: const Text('Tải & Cài đặt ngay'),
           ),
         ]
       ],

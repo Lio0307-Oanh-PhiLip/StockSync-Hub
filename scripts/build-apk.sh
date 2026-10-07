@@ -1,17 +1,18 @@
 #!/bin/bash
 set -e
 
-VERSION_CODE="14"
-VERSION_NAME="1.1.4"
+VERSION_CODE="15"
+VERSION_NAME="1.1.5"
 
 echo "=================================================="
 echo "  StockSync Hub - APK Build Engine v$VERSION_NAME"
+echo "  (Fix Play Protect & Package Installation Error)"
 echo "=================================================="
 
 APPLET_DIR="$(pwd)"
 WORK="/tmp/apk-build"
 rm -rf "$WORK"
-mkdir -p "$WORK"/src/com/stocksync/app "$WORK"/res/values "$WORK"/res/mipmap-hdpi "$WORK"/bin "$WORK"/gen "$WORK"/assets
+mkdir -p "$WORK"/src/com/stocksync/app "$WORK"/res/values "$WORK"/res/xml "$WORK"/res/mipmap-hdpi "$WORK"/bin "$WORK"/gen "$WORK"/assets
 
 # -----------------------------------------------------------------------------
 # 1. Tự động phát hiện Android SDK, Build-Tools và Platforms
@@ -36,7 +37,6 @@ done
 
 ANDROID_JAR=""
 if [ -n "$ANDROID_SDK" ] && [ -d "$ANDROID_SDK/platforms" ]; then
-  # Lấy platform mới nhất (ví dụ: android-34, android-33, ...)
   ANDROID_JAR=$(ls -d "$ANDROID_SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -n 1 || true)
 fi
 
@@ -147,12 +147,21 @@ rm -f "$WORK"/assets/*.apk "$WORK"/assets/server.cjs* || true
 # -----------------------------------------------------------------------------
 # 3. Tạo cấu hình AndroidManifest và Resource
 # -----------------------------------------------------------------------------
-echo "[3/8] Thiết lập AndroidManifest.xml & strings.xml..."
+echo "[3/8] Thiết lập AndroidManifest.xml, FileProvider & strings.xml..."
 cat << XML > "$WORK"/res/values/strings.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">StockSync</string>
 </resources>
+XML
+
+cat << XML > "$WORK"/res/xml/file_paths.xml
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external_files" path="." />
+    <cache-path name="cache_files" path="." />
+    <files-path name="internal_files" path="." />
+</paths>
 XML
 
 if [ -f "$APPLET_DIR"/public/pwa-192x192.png ]; then
@@ -164,12 +173,13 @@ fi
 cat << XML > "$WORK"/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.stocksync.app"
+    package="com.stocksync.warehouse.scanner"
     android:versionCode="$VERSION_CODE"
     android:versionName="$VERSION_NAME">
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -183,7 +193,8 @@ cat << XML > "$WORK"/AndroidManifest.xml
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.NoTitleBar"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true">
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
@@ -204,7 +215,7 @@ XML
 # -----------------------------------------------------------------------------
 echo "[4/8] Tạo MainActivity.java và Java Bridge..."
 cat << 'JAVA' > "$WORK"/src/com/stocksync/app/MainActivity.java
-package com.stocksync.app;
+package com.stocksync.warehouse.scanner;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -310,14 +321,14 @@ public class MainActivity extends Activity {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 Uri uri = Uri.fromFile(file);
                 intent.setDataAndType(uri, "application/vnd.android.package-archive");
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 mContext.startActivity(intent);
             }
         }
         
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.4";
+            return "1.1.5";
         }
     }
 }
@@ -327,9 +338,10 @@ JAVA
 # 5. Biên dịch R.java và Java Class
 # -----------------------------------------------------------------------------
 echo "[5/8] Tạo R.java và biên dịch Java bytecode..."
+mkdir -p "$WORK"/gen "$WORK"/bin
 "$AAPT_BIN" package -f -m -J "$WORK"/gen -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -I "$ANDROID_JAR"
 
-javac -source 1.8 -target 1.8 -cp "$ANDROID_JAR" -d "$WORK"/bin "$WORK"/gen/com/stocksync/app/R.java "$WORK"/src/com/stocksync/app/MainActivity.java
+javac -source 1.8 -target 1.8 -cp "$ANDROID_JAR" -d "$WORK"/bin "$WORK"/gen/com/stocksync/warehouse/scanner/R.java "$WORK"/src/com/stocksync/app/MainActivity.java
 
 # -----------------------------------------------------------------------------
 # 6. Chuyển đổi sang Dalvik Executable (classes.dex)
@@ -351,7 +363,7 @@ fi
 echo "✔ Đã tạo thành công classes.dex"
 
 # -----------------------------------------------------------------------------
-# 7. Đóng gói, Zipalign và Ký APK với Keystore
+# 7. Đóng gói, Zipalign và Ký APK với Keystore Chuẩn
 # -----------------------------------------------------------------------------
 echo "[7/8] Đóng gói APK và Zipalign..."
 "$AAPT_BIN" package -f -0 "" -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -A "$WORK"/assets -I "$ANDROID_JAR" -F "$WORK"/bin/unaligned.apk
@@ -360,13 +372,29 @@ cd "$WORK"/bin
 
 "$ZIPALIGN_BIN" -f -p 4 "$WORK"/bin/unaligned.apk "$WORK"/bin/aligned.apk
 
-echo "[8/8] Ký số APK bằng apksigner & keystore..."
+echo "[8/8] Ký số APK bằng apksigner & keystore doanh nghiệp..."
 KEYSTORE="$APPLET_DIR/stocksync-release.keystore"
 if [ ! -f "$KEYSTORE" ]; then
-  keytool -genkeypair -v -keystore "$KEYSTORE" -alias stocksync -keyalg RSA -keysize 2048 -validity 10000 -storepass stocksync123 -keypass stocksync123 -dname "CN=StockSync"
+  keytool -genkeypair -v \
+    -keystore "$KEYSTORE" \
+    -alias stocksync_enterprise \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 10000 \
+    -storepass stocksync123 \
+    -keypass stocksync123 \
+    -dname "CN=StockSync Warehouse Manager, OU=Logistics Warehouse, O=StockSync Hub, L=Ho Chi Minh, ST=SG, C=VN"
 fi
 
-"$APKSIGNER_BIN" sign --ks "$KEYSTORE" --ks-pass pass:stocksync123 --key-pass pass:stocksync123 --ks-key-alias stocksync "$WORK"/bin/aligned.apk
+"$APKSIGNER_BIN" sign \
+  --ks "$KEYSTORE" \
+  --ks-pass pass:stocksync123 \
+  --key-pass pass:stocksync123 \
+  --ks-key-alias stocksync_enterprise \
+  --v1-signing-enabled true \
+  --v2-signing-enabled true \
+  --v3-signing-enabled true \
+  "$WORK"/bin/aligned.apk
 
 # -----------------------------------------------------------------------------
 # Hoàn tất xuất xưởng

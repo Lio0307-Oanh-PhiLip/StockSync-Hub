@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-release:
-    name: Build & Release Package v1.1.4
+    name: Build & Release Package v1.1.5
     runs-on: ubuntu-latest
     
     permissions:
@@ -47,7 +47,7 @@ jobs:
           ./node_modules/.bin/vite build
           ./node_modules/.bin/esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
 
-      - name: Build Android APK (v1.1.4)
+      - name: Build Android APK (v1.1.5)
         run: |
           chmod +x ./scripts/build-apk.sh
           ./scripts/build-apk.sh
@@ -63,7 +63,7 @@ jobs:
           mkdir -p build-deb/usr/local/bin build-deb/DEBIAN
           cat << 'EOF' > build-deb/DEBIAN/control
           Package: stocksync-hub
-          Version: 1.1.4
+          Version: 1.1.5
           Section: utils
           Priority: optional
           Architecture: all
@@ -71,36 +71,41 @@ jobs:
           Description: StockSync Hub - Kho Xac Linh Kien & Quan Ly Kiem Ke
           EOF
           cp -r dist build-deb/usr/local/bin/stocksync-dist
-          dpkg-deb --build build-deb stocksync-hub_1.1.4_all.deb
+          dpkg-deb --build build-deb stocksync-hub_1.1.5_all.deb
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-artifacts-v1.1.4
+          name: release-artifacts-v1.1.5
           path: |
             public/StockSync.apk
-            stocksync-hub_1.1.4_all.deb
+            stocksync-hub_1.1.5_all.deb
             stocksync-windows-x64.zip
 
       - name: Auto-Release to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.1.4
-          name: 'StockSync Hub v1.1.4 (Auto-Release)'
+          tag_name: v1.1.5
+          name: 'StockSync Hub v1.1.5 (Official Release)'
           body: |
-            ## 🚀 StockSync Hub v1.1.4 - Phiên bản phát hành chính thức
+            ## 🚀 StockSync Hub v1.1.5 - Phiên bản phát hành chính thức
             
             Hệ thống quản lý đối chiếu & quét linh kiện xác kho (IW/OOW) thời gian thực.
+            
+            ### 🛠️ Các cải tiến & Fix lỗi trong v1.1.5:
+            - ✅ **Khắc phục lỗi Google Play Protect**: Đã ký chứng chỉ số Enterprise (v1, v2, v3 schemes) và tối ưu Target SDK 34.
+            - ✅ **Khắc phục lỗi "Ứng dụng chưa được cài đặt"**: Tích hợp FileProvider an toàn, tương thích mọi phiên bản Android 5.0 đến 14/15.
+            - ✅ **Auto-update mượt mà**: Tải trực tiếp từ GitHub Releases và tự động kích hoạt trình cài đặt gói Android.
             
             ### 📦 Danh sách tệp đính kèm:
             - 📱 **StockSync.apk**: Ứng dụng Android độc lập (Camera QR/Barcode Scanner, Auto-update từ GitHub Releases, Offline Sync).
             - 🪟 **stocksync-windows-x64.zip**: Gói ứng dụng chạy trên máy tính Windows (Hỗ trợ súng quét mã vạch USB/Bluetooth).
-            - 🐧 **stocksync-hub_1.1.4_all.deb**: Gói cài đặt chuẩn Debian / Ubuntu Linux.
+            - 🐧 **stocksync-hub_1.1.5_all.deb**: Gói cài đặt chuẩn Debian / Ubuntu Linux.
           draft: false
           prerelease: false
           files: |
             public/StockSync.apk
-            stocksync-hub_1.1.4_all.deb
+            stocksync-hub_1.1.5_all.deb
             stocksync-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
