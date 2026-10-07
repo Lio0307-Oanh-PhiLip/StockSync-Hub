@@ -42,6 +42,7 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
   WebSocketChannel? channel;
   String serverUrl = "wss://ais-dev-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app/ws";
   bool isConnected = false;
+  bool isTorchOn = false;
   List<Map<String, dynamic>> scanHistory = [];
   String lastScannedCode = '';
 
@@ -133,13 +134,19 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
             onPressed: () => UpgradeService.checkForUpdate(context),
           ),
           IconButton(
-            icon: ValueListenableBuilder(
-              valueListenable: scannerController.torchState,
-              builder: (context, state, child) {
-                return Icon(state == TorchState.on ? Icons.flash_on : Icons.flash_off);
-              },
+            icon: Icon(
+              isTorchOn ? Icons.flash_on : Icons.flash_off,
+              color: isTorchOn ? Colors.amber : Colors.white,
             ),
-            onPressed: () => scannerController.toggleTorch(),
+            tooltip: 'Bật/Tắt Đèn Flash',
+            onPressed: () async {
+              try {
+                await scannerController.toggleTorch();
+                setState(() {
+                  isTorchOn = !isTorchOn;
+                });
+              } catch (_) {}
+            },
           ),
         ],
       ),
