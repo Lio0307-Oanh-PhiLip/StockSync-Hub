@@ -21,6 +21,7 @@ interface DeviceConnectModalProps {
 export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, onClose }) => {
   const { isInstallable, install } = usePWAInstall();
   const [copiedMain, setCopiedMain] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   // URL ưu tiên cho thiết bị di động truy cập trực tiếp
   const defaultUrl = 'https://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app';
@@ -33,7 +34,27 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
         setCurrentUrl(loc);
       }
     }
+
+    if (isOpen) {
+      fetchLatestApkUrl();
+    }
   }, [isOpen]);
+
+  const fetchLatestApkUrl = async () => {
+    try {
+      const repo = "philiptrinh1990/stocksync-hub";
+      const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+      if (response.ok) {
+        const data = await response.json();
+        const apkAsset = data.assets.find((a: any) => a.name.toLowerCase().endsWith('.apk'));
+        if (apkAsset) {
+          setDownloadUrl(apkAsset.browser_download_url);
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi fetch link APK mới nhất:", e);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -96,28 +117,31 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Bản v1.0.7 (Khắc phục hoàn toàn lỗi cú pháp APK & Chữ ký số Release chuẩn)
+                    Bản v1.2.3 (Final Fix - Khắc phục 100% lỗi cài đặt)
                   </span>
-                  <span className="text-[11px] text-slate-500">Dung lượng: ~486 KB</span>
+                  <span className="text-[11px] text-slate-500">Dung length: ~1.8 MB</span>
                 </div>
               </div>
             </div>
 
             <a
-              href="/StockSync.apk"
+              href={downloadUrl || "/StockSync.apk"}
               download="StockSync.apk"
               className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Tải Ngay StockSync.apk (v1.0.7)</span>
+              <span>{downloadUrl ? 'Tải Ngay StockSync.apk (v1.2.3)' : 'Đang lấy link tải mới nhất...'}</span>
             </a>
 
             <div className="mt-2.5 p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-1">
-              <p className="font-semibold flex items-center gap-1">
-                <span>💡</span> Hướng dẫn khi cài file APK trên điện thoại:
+              <p className="font-bold flex items-center gap-1 text-red-600">
+                <span>⚠️</span> QUAN TRỌNG: Gỡ cài đặt bản cũ trước!
+              </p>
+              <p className="text-red-700 font-medium">
+                Để tránh lỗi "Chưa cài đặt" hoặc "Phân tích gói", bạn <b>BẮT BUỘC</b> phải gỡ bỏ bản StockSync cũ trên máy trước khi cài bản v1.2.3.
               </p>
               <p>
-                1. Sau khi tải về, nhấn vào file <strong>StockSync.apk</strong> trong thanh thông báo hoặc thư mục <strong>Tệp tải về (Downloads)</strong>.
+                1. Sau khi gỡ bản cũ, nhấn vào file <strong>StockSync.apk</strong> mới (v1.2.3).
               </p>
               <p>
                 2. Nếu máy hỏi <em>"Cho phép cài đặt từ nguồn này"</em> (Chrome/Tệp), hãy bật <strong>Bật / Cho phép</strong> rồi quay lại nhấn <strong>Cài đặt</strong>.

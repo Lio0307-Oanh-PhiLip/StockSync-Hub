@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.stocksync.warehouse.scanner">
+    package="com.stocksync.app">
 
     <!-- Quyền Camera phục vụ quét mã vạch / QR tốc độ cao -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -20,6 +20,7 @@
         android:label="StockSync"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true">
         
@@ -45,7 +46,7 @@
         <!-- FileProvider hỗ trợ mở tệp APK cập nhật an toàn trên Android 7.0+ -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
+            android:authorities="com.stocksync.app.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

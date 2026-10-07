@@ -63,6 +63,57 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
         setState(() {
           isConnected = true;
         });
+
+        try {
+          final data = json.decode(message);
+          final String type = data['type'] ?? '';
+          final payload = data['payload'];
+
+          if (type == 'INIT_STATE' || type == 'SYNC_FULL_STATE') {
+            final List oow = payload['oow'] ?? [];
+            final List iw = payload['iw'] ?? [];
+            final List combined = [...oow, ...iw];
+            
+            setState(() {
+              scanHistory = combined
+                  .where((it) => (it['daQuet'] ?? 0) > 0)
+                  .map((it) => {
+                        'code': it['cotSP'] ?? it['soRO'] ?? '',
+                        'time': it['lastScannedAt'] ?? '',
+                        'name': it['productName'] ?? '',
+                      })
+                  .toList();
+            });
+          } else if (type == 'SCAN_PERFORMED') {
+            final item = payload['item'];
+            final String code = item['cotSP'] ?? item['soRO'] ?? '';
+            final String time = item['lastScannedAt'] ?? '';
+            
+            setState(() {
+              // Xóa nếu đã tồn tại để đẩy lên đầu
+              scanHistory.removeWhere((it) => it['code'] == code);
+              scanHistory.insert(0, {
+                'code': code,
+                'time': time,
+                'name': item['productName'] ?? '',
+              });
+            });
+          } else if (type == 'SCAN_REMOVED') {
+            final String itemId = payload['itemId'];
+            final item = payload['item'];
+            final String code = item != null ? (item['cotSP'] ?? item['soRO'] ?? '') : '';
+            
+            setState(() {
+              scanHistory.removeWhere((it) => it['code'] == code || it['id'] == itemId);
+            });
+          } else if (type == 'SCANS_CLEARED') {
+            setState(() {
+              scanHistory = [];
+            });
+          }
+        } catch (e) {
+          debugPrint('Lỗi xử lý tin nhắn WebSocket: $e');
+        }
       }, onError: (err) {
         setState(() {
           isConnected = false;
@@ -124,7 +175,7 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('StockSync Scanner v1.1.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: const Text('StockSync Scanner v1.2.3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
         actions: [

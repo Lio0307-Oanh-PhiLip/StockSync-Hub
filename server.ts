@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
+import { WebSocketServer, WebSocket } from 'ws';
+import http from 'http';
 
 function cleanBarcode(str: string | number | undefined | null): string {
   if (str === undefined || str === null) return '';
@@ -256,302 +258,249 @@ function saveStateToDisk(state: ServerState) {
 
 serverState = loadPersistedState();
 
-// Connected Server-Sent Events (SSE) clients (PC, Phone APKs, tablets)
+// Connected Server-Sent Events (SSE) clients (PC)
 const sseClients = new Set<Response>();
 
-function broadcastSSE(event: { type: string; payload: any; version: number }) {
-  const data = `data: ${JSON.stringify({ ...event, timestamp: Date.now() })}\n\n`;
+// Connected WebSocket clients (Mobile APK)
+const wsClients = new Set<WebSocket>();
+
+function broadcastSync(event: { type: string; payload: any; version: number }) {
+  // Broadcast to SSE (PC)
+  const sseData = `data: ${JSON.stringify({ ...event, timestamp: Date.now() })}\n\n`;
   sseClients.forEach(client => {
     try {
-      client.write(data);
+      client.write(sseData);
     } catch (e) {
       sseClients.delete(client);
     }
   });
+
+  // Broadcast to WebSockets (Mobile APK)
+  const wsData = JSON.stringify({ ...event, timestamp: Date.now() });
+  wsClients.forEach(client => {
+    try {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(wsData);
+      }
+    } catch (e) {
+      wsClients.delete(client);
+    }
+  });
 }
 
-async function startServer() {
-  const app = express();
+function processScan(rawCode: string, clientId: string = 'system') {
+  const clean = cleanBarcode(rawCode);
+  if (!clean) return { error: 'Mã vạch không hợp lệ!' };
 
-  // Permissive CORS middleware for cross-device & APK access
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-id');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
+  let matchedItem: ServerInventoryItem | null = null;
+  let listType: 'IW' | 'OOW' = 'OOW';
+
+  // Search in OOW first, then IW
+  for (const item of serverState.oow) {
+    const k1 = cleanBarcode(item.cotSP);
+    const k2 = cleanBarcode(`${item.soRO}${item.maLK}`);
+    const soROClean = cleanBarcode(item.soRO);
+    const maLKClean = cleanBarcode(item.maLK);
+
+    if (clean === k1 || clean === k2 || clean === soROClean || clean === maLKClean || (k1.includes(clean) && clean.length >= 6)) {
+      matchedItem = item;
+      listType = 'OOW';
+      break;
     }
-    next();
-  });
+  }
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // ==========================================
-  // REAL-TIME SYNCHRONIZATION API ENDPOINTS
-  // ==========================================
-
-  // 1. Health check & status
-  app.get('/api/health', (req: Request, res: Response) => {
-    res.json({
-      status: 'ok',
-      version: serverState.version,
-      lastModified: serverState.lastModified,
-      totalItems: serverState.iw.length + serverState.oow.length,
-      onlineClients: sseClients.size
-    });
-  });
-
-  // 2. GET current full state
-  app.get('/api/sync/state', (req: Request, res: Response) => {
-    res.json(serverState);
-  });
-
-  // 3. Real-Time SSE Stream for instant multi-device event push
-  app.get('/api/sync/stream', (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders?.();
-
-    // Send initial greeting with current version
-    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', version: serverState.version, onlineClients: sseClients.size + 1 })}\n\n`);
-
-    sseClients.add(res);
-
-    req.on('close', () => {
-      sseClients.delete(res);
-    });
-  });
-
-  // 4. Upload/Replace/Merge Inventory List (When PC changes list or loads new Excel)
-  app.post('/api/sync/upload', (req: Request, res: Response) => {
-    const { iw, oow, sourceInfo, mode = 'merge_keep_scanned' } = req.body;
-
-    if (!Array.isArray(iw) || !Array.isArray(oow)) {
-      return res.status(400).json({ error: 'Danh sách IW và OOW không hợp lệ!' });
-    }
-
-    serverState.version += 1;
-    serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
-    serverState.sourceInfo = {
-      ...sourceInfo,
-      lastSyncedAt: serverState.lastModified,
-      version: serverState.version,
-      rowCount: iw.length + oow.length,
-      iwCount: iw.length,
-      oowCount: oow.length
-    };
-    serverState.iw = iw;
-    serverState.oow = oow;
-
-    saveStateToDisk(serverState);
-
-    // Push real-time event to APK & all other clients
-    broadcastSSE({
-      type: 'SYNC_FULL_STATE',
-      payload: serverState,
-      version: serverState.version
-    });
-
-    res.json({ success: true, version: serverState.version, message: 'Đã cập nhật danh sách và đồng bộ tới toàn bộ thiết bị (APK/PC)!' });
-  });
-
-  // 5. Scan a Barcode (From PC barcode gun or APK camera)
-  app.post('/api/sync/scan', (req: Request, res: Response) => {
-    const rawCode = req.body.scannedCode || req.body.barcode;
-    const clientId = req.body.clientId;
-    if (!rawCode) {
-      return res.status(400).json({ error: 'Thiếu mã quét barcode!' });
-    }
-
-    const clean = cleanBarcode(rawCode);
-    if (!clean) {
-      return res.status(400).json({ error: 'Mã vạch rỗng hoặc không hợp lệ!' });
-    }
-
-    let matchedItem: ServerInventoryItem | null = null;
-    let listType: 'IW' | 'OOW' = 'OOW';
-
-    // Search in OOW first, then IW using exact cleaned rules
-    for (const item of serverState.oow) {
+  if (!matchedItem) {
+    for (const item of serverState.iw) {
       const k1 = cleanBarcode(item.cotSP);
       const k2 = cleanBarcode(`${item.soRO}${item.maLK}`);
       const soROClean = cleanBarcode(item.soRO);
       const maLKClean = cleanBarcode(item.maLK);
 
-      if (
-        clean === k1 ||
-        clean === k2 ||
-        clean === soROClean ||
-        clean === maLKClean ||
-        (k1.includes(clean) && clean.length >= 6)
-      ) {
+      if (clean === k1 || clean === k2 || clean === soROClean || clean === maLKClean || (k1.includes(clean) && clean.length >= 6)) {
         matchedItem = item;
-        listType = 'OOW';
+        listType = 'IW';
         break;
       }
     }
+  }
 
-    if (!matchedItem) {
-      for (const item of serverState.iw) {
-        const k1 = cleanBarcode(item.cotSP);
-        const k2 = cleanBarcode(`${item.soRO}${item.maLK}`);
-        const soROClean = cleanBarcode(item.soRO);
-        const maLKClean = cleanBarcode(item.maLK);
+  if (!matchedItem) return { error: 'Không tìm thấy linh kiện!' };
 
-        if (
-          clean === k1 ||
-          clean === k2 ||
-          clean === soROClean ||
-          clean === maLKClean ||
-          (k1.includes(clean) && clean.length >= 6)
-        ) {
-          matchedItem = item;
-          listType = 'IW';
-          break;
+  // Update scan count
+  matchedItem.daQuet = Math.min(matchedItem.slg, matchedItem.daQuet + 1);
+  matchedItem.trangThai = 'Khớp, Trả Xác';
+  matchedItem.lastScannedAt = new Date().toLocaleTimeString('vi-VN');
+  if (!matchedItem.scanHistory) matchedItem.scanHistory = [];
+  matchedItem.scanHistory.push({
+    timestamp: matchedItem.lastScannedAt,
+    barcode: rawCode,
+    method: clientId
+  });
+
+  serverState.version += 1;
+  serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
+  saveStateToDisk(serverState);
+
+  broadcastSync({
+    type: 'SCAN_PERFORMED',
+    payload: { item: matchedItem, listType, version: serverState.version },
+    version: serverState.version
+  });
+
+  return { success: true, item: matchedItem, version: serverState.version };
+}
+
+async function startServer() {
+  const app = express();
+  const server = http.createServer(app);
+
+  // Setup WebSocket Server for Mobile APK
+  const wss = new WebSocketServer({ server, path: '/ws' });
+
+  wss.on('connection', (ws) => {
+    console.log('[WebSocket] Mobile client connected');
+    wsClients.add(ws);
+
+    // Send initial state to mobile on connect
+    ws.send(JSON.stringify({
+      type: 'INIT_STATE',
+      payload: serverState,
+      version: serverState.version,
+      timestamp: Date.now()
+    }));
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('[WebSocket] Received:', data.type);
+
+        if (data.type === 'SCAN_EVENT') {
+          const barcode = data.barcode || data.scannedCode;
+          if (barcode) {
+            processScan(barcode, 'mobile_apk');
+          }
         }
+      } catch (e) {
+        console.error('[WebSocket] Error processing message:', e);
       }
-    }
-
-    if (!matchedItem) {
-      return res.status(404).json({ error: 'Không tìm thấy linh kiện trong danh sách đối chiếu!' });
-    }
-
-    // Update scan count
-    matchedItem.daQuet = Math.min(matchedItem.slg, matchedItem.daQuet + 1);
-    matchedItem.trangThai = 'Khớp, Trả Xác';
-    matchedItem.lastScannedAt = new Date().toLocaleTimeString('vi-VN');
-    if (!matchedItem.scanHistory) matchedItem.scanHistory = [];
-    matchedItem.scanHistory.push({
-      timestamp: matchedItem.lastScannedAt,
-      barcode: rawCode,
-      method: clientId || 'scanner'
     });
+
+    ws.on('close', () => {
+      console.log('[WebSocket] Mobile client disconnected');
+      wsClients.add(ws);
+    });
+  });
+
+  // Permissive CORS middleware
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-id');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+  });
+
+  app.use(express.json({ limit: '50mb' }));
+
+  // API Endpoints
+  app.get('/api/health', (req, res) => {
+    res.json({
+      status: 'ok',
+      version: serverState.version,
+      onlineSSE: sseClients.size,
+      onlineWS: wsClients.size
+    });
+  });
+
+  app.get('/api/sync/state', (req, res) => res.json(serverState));
+
+  app.get('/api/sync/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', version: serverState.version })}\n\n`);
+    sseClients.add(res);
+    req.on('close', () => sseClients.delete(res));
+  });
+
+  app.post('/api/sync/upload', (req, res) => {
+    const { iw, oow, sourceInfo } = req.body;
+    if (!Array.isArray(iw) || !Array.isArray(oow)) return res.status(400).json({ error: 'Invalid list' });
 
     serverState.version += 1;
     serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
+    serverState.sourceInfo = { ...sourceInfo, lastSyncedAt: serverState.lastModified, version: serverState.version };
+    serverState.iw = iw;
+    serverState.oow = oow;
+
     saveStateToDisk(serverState);
-
-    // Real-time broadcast
-    broadcastSSE({
-      type: 'SCAN_PERFORMED',
-      payload: {
-        item: matchedItem,
-        listType,
-        version: serverState.version
-      },
-      version: serverState.version
-    });
-
-    res.json({ success: true, item: matchedItem, version: serverState.version });
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    res.json({ success: true, version: serverState.version });
   });
 
-  // 6. DELETE / UNDO A SCANNED ROW (Explicit user request: "HOẶC XÓA DÒNG ĐÃ QUÉT, THÌ TRÊN APP ỨNG DỤNG APK CŨNG SẼ TỰ CẬP NHẬT THEO")
-  app.post('/api/sync/remove-scan', (req: Request, res: Response) => {
-    const { itemId, clientId } = req.body;
-    if (!itemId) {
-      return res.status(400).json({ error: 'Thiếu itemId cần xóa/hủy quét!' });
-    }
+  app.post('/api/sync/scan', (req, res) => {
+    const result = processScan(req.body.scannedCode || req.body.barcode, req.body.clientId || 'pc_web');
+    if (result.error) return res.status(400).json(result);
+    res.json(result);
+  });
 
+  app.post('/api/sync/remove-scan', (req, res) => {
+    const { itemId } = req.body;
     let foundItem: ServerInventoryItem | null = null;
-    const all = [...serverState.iw, ...serverState.oow];
-    for (const it of all) {
+    [...serverState.iw, ...serverState.oow].forEach(it => {
       if (it.id === itemId) {
         it.daQuet = 0;
         it.trangThai = 'Chưa Scan';
         it.lastScannedAt = undefined;
         it.scanHistory = [];
         foundItem = it;
-        break;
       }
-    }
+    });
 
-    if (!foundItem) {
-      return res.status(404).json({ error: 'Không tìm thấy dòng linh kiện cần xóa!' });
-    }
+    if (!foundItem) return res.status(404).json({ error: 'Item not found' });
 
     serverState.version += 1;
     serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
     saveStateToDisk(serverState);
 
-    // Broadcast to APK & all other devices
-    broadcastSSE({
-      type: 'SCAN_REMOVED',
-      payload: {
-        itemId,
-        item: foundItem,
-        version: serverState.version
-      },
-      version: serverState.version
-    });
-
-    res.json({
-      success: true,
-      message: `Đã xóa trạng thái quét của linh kiện [${foundItem.soRO} / ${foundItem.maLK}], APK đã tự động cập nhật!`,
-      version: serverState.version,
-      item: foundItem
-    });
+    broadcastSync({ type: 'SCAN_REMOVED', payload: { itemId, item: foundItem, version: serverState.version }, version: serverState.version });
+    res.json({ success: true, version: serverState.version });
   });
 
-  // 7. Clear all scanned items (reset feed)
-  app.post('/api/sync/clear-scans', (req: Request, res: Response) => {
+  app.post('/api/sync/clear-scans', (req, res) => {
     [...serverState.iw, ...serverState.oow].forEach(it => {
       it.daQuet = 0;
       it.trangThai = 'Chưa Scan';
       it.lastScannedAt = undefined;
       it.scanHistory = [];
     });
-
     serverState.version += 1;
-    serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
     saveStateToDisk(serverState);
-
-    broadcastSSE({
-      type: 'SCANS_CLEARED',
-      payload: {
-        version: serverState.version
-      },
-      version: serverState.version
-    });
-
-    res.json({ success: true, message: 'Đã xóa sạch toàn bộ lịch sử quét trên tất cả thiết bị!', version: serverState.version });
+    broadcastSync({ type: 'SCANS_CLEARED', payload: { version: serverState.version }, version: serverState.version });
+    res.json({ success: true });
   });
 
-  // 8. Reset to default 366 items
-  app.post('/api/sync/reset-default', (req: Request, res: Response) => {
+  app.post('/api/sync/reset-default', (req, res) => {
     serverState = generateInitialState();
     saveStateToDisk(serverState);
-
-    broadcastSSE({
-      type: 'SYNC_FULL_STATE',
-      payload: serverState,
-      version: serverState.version
-    });
-
-    res.json({ success: true, message: 'Đã thiết lập lại dữ liệu mẫu chuẩn 366 dòng!', version: serverState.version });
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    res.json({ success: true });
   });
 
-  // ==========================================
-  // VITE & STATIC FILES SERVING
-  // ==========================================
+  // Serve VITE app
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] StockSync Realtime Engine running on http://0.0.0.0:${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] StockSync Realtime Hub running on port ${PORT} (SSE + WebSocket)`);
   });
 }
 
 startServer();
+

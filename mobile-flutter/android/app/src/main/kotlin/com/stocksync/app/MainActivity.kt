@@ -1,4 +1,4 @@
-package com.stocksync.warehouse.scanner
+package com.stocksync.app
 
 import io.flutter.embedding.android.FlutterActivity
 
