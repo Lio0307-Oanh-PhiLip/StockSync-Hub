@@ -41,33 +41,34 @@ jobs:
       - name: 4. Ensure Release Keystore Exists
         run: |
           mkdir -p mobile-flutter/android/app
-          mkdir -p mobile-flutter/android
-          if [ ! -f "stocksync-release.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore stocksync-release.keystore \
-              -alias stocksync_enterprise \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass stocksync123 \
-              -keypass stocksync123 \
-              -dname "CN=StockSync Enterprise, OU=Warehouse Logistics, O=StockSync Hub, L=Ho Chi Minh, ST=SG, C=VN"
-          fi
-          cp stocksync-release.keystore mobile-flutter/android/app/stocksync-release.keystore
-          cp stocksync-release.keystore mobile-flutter/stocksync-release.keystore
-          cp stocksync-release.keystore mobile-flutter/android/stocksync-release.keystore
+          # Remove any old keystore to ensure clean generation
+          rm -f mobile-flutter/android/app/stocksync-release.keystore
+          
+          keytool -genkeypair -v \
+            -keystore mobile-flutter/android/app/stocksync-release.keystore \
+            -alias stocksync_enterprise \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass stocksync123 \
+            -keypass stocksync123 \
+            -dname "CN=StockSync Enterprise, OU=Warehouse Logistics, O=StockSync Hub, L=Ho Chi Minh, ST=SG, C=VN"
+          
+          ls -la mobile-flutter/android/app/stocksync-release.keystore
 
       - name: 5. Check Flutter Environment & Doctor
         run: flutter doctor -v
 
       - name: 6. Install Dependencies
         working-directory: ./mobile-flutter
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter clean
 
       - name: 7. Build Android Release APK
         working-directory: ./mobile-flutter
         run: |
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --release --no-tree-shake-icons --build-name=1.1.8 --build-number=18
 
       - name: 8. Prepare APK Output Files
         run: |

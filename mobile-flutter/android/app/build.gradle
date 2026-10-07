@@ -54,32 +54,18 @@ android {
             // standard debug
         }
         release {
-            def keystoreFile = [
-                file("stocksync-release.keystore"),
-                file("../stocksync-release.keystore"),
-                file("../../stocksync-release.keystore"),
-                file("../../../stocksync-release.keystore")
-            ].find { it != null && it.exists() }
-
-            if (keystoreFile != null && keystoreFile.exists()) {
-                storeFile keystoreFile
-                storePassword "stocksync123"
-                keyAlias "stocksync_enterprise"
-                keyPassword "stocksync123"
-                v1SigningEnabled true
-                v2SigningEnabled true
-            }
+            storeFile file("stocksync-release.keystore")
+            storePassword "stocksync123"
+            keyAlias "stocksync_enterprise"
+            keyPassword "stocksync123"
+            v1SigningEnabled true
+            v2SigningEnabled true
         }
     }
 
     buildTypes {
         release {
-            def hasKeystore = signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()
-            if (hasKeystore) {
-                signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
-            }
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
