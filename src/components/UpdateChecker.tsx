@@ -16,7 +16,7 @@ export const UpdateChecker: React.FC = () => {
 
   // Hardcoded for the app's repo (should be updated by user or template)
   const GITHUB_REPO = "philiptrinh1990/stocksync-hub"; 
-  const CURRENT_VERSION = "1.1.3";
+  const CURRENT_VERSION = "1.1.4";
 
   useEffect(() => {
     // Only check if running inside the Android APK (detect via bridge)

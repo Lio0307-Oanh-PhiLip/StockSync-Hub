@@ -1,90 +1,153 @@
 #!/bin/bash
 set -e
 
-# Tăng version lên 1.1.3
-VERSION_CODE="13"
-VERSION_NAME="1.1.3"
+VERSION_CODE="14"
+VERSION_NAME="1.1.4"
 
-echo "=== STARTING APK BUILD v$VERSION_NAME ==="
+echo "=================================================="
+echo "  StockSync Hub - APK Build Engine v$VERSION_NAME"
+echo "=================================================="
 
-# Tự động xác định thư mục gốc của applet
 APPLET_DIR="$(pwd)"
 WORK="/tmp/apk-build"
 rm -rf "$WORK"
 mkdir -p "$WORK"/src/com/stocksync/app "$WORK"/res/values "$WORK"/res/mipmap-hdpi "$WORK"/bin "$WORK"/gen "$WORK"/assets
 
-# Tìm kiếm Android SDK và android.jar
-# Ưu tiên các đường dẫn chuẩn trên GitHub Actions runner
+# -----------------------------------------------------------------------------
+# 1. Tự động phát hiện Android SDK, Build-Tools và Platforms
+# -----------------------------------------------------------------------------
 POSSIBLE_SDK_PATHS=(
   "$ANDROID_HOME"
   "$ANDROID_SDK_ROOT"
   "/usr/local/lib/android/sdk"
   "/usr/lib/android-sdk"
   "/opt/android-sdk"
+  "$HOME/Android/Sdk"
 )
 
-ANDROID_JAR=""
-DX_JAR=""
-
-for sdk_path in "${POSSIBLE_SDK_PATHS[@]}"; do
-  if [ -n "$sdk_path" ] && [ -d "$sdk_path" ]; then
-    echo "Checking SDK path: $sdk_path"
-    # Tìm android.jar trong platforms
-    for ver in 34 33 32 31 30 29 28 27 26 25 24 23; do
-      JAR="$sdk_path/platforms/android-$ver/android.jar"
-      if [ -f "$JAR" ]; then
-        ANDROID_JAR="$JAR"
-        echo "Found android.jar: $ANDROID_JAR"
-        break 2
-      fi
-    done
+ANDROID_SDK=""
+for path in "${POSSIBLE_SDK_PATHS[@]}"; do
+  if [ -n "$path" ] && [ -d "$path" ]; then
+    ANDROID_SDK="$path"
+    echo "✔ Phát hiện Android SDK tại: $ANDROID_SDK"
+    break
   fi
 done
 
-# Fallback tìm kiếm sâu hơn nếu không thấy trong các đường dẫn mặc định
-if [ -z "$ANDROID_JAR" ]; then
-  echo "Searching for android.jar globally (this might take a while)..."
-  ANDROID_JAR=$(find /usr -name "android.jar" | head -n 1 || true)
+ANDROID_JAR=""
+if [ -n "$ANDROID_SDK" ] && [ -d "$ANDROID_SDK/platforms" ]; then
+  # Lấy platform mới nhất (ví dụ: android-34, android-33, ...)
+  ANDROID_JAR=$(ls -d "$ANDROID_SDK"/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -n 1 || true)
 fi
 
-if [ -z "$ANDROID_JAR" ]; then
-  echo "ERROR: android.jar not found. APK build cannot continue."
+# Fallback nếu chưa tìm thấy android.jar
+if [ -z "$ANDROID_JAR" ] || [ ! -f "$ANDROID_JAR" ]; then
+  echo "🔍 Đang tìm kiếm android.jar trên toàn hệ thống..."
+  ANDROID_JAR=$(find /usr -name "android.jar" 2>/dev/null | head -n 1 || true)
+fi
+
+if [ -z "$ANDROID_JAR" ] || [ ! -f "$ANDROID_JAR" ]; then
+  echo "❌ LỖI: Không tìm thấy tệp android.jar. Vui lòng đảm bảo Android SDK Platform đã được cài đặt."
+  exit 1
+fi
+echo "✔ Sử dụng android.jar: $ANDROID_JAR"
+
+# Tìm kiếm thư mục build-tools mới nhất
+BUILD_TOOLS_DIR=""
+if [ -n "$ANDROID_SDK" ] && [ -d "$ANDROID_SDK/build-tools" ]; then
+  BUILD_TOOLS_DIR=$(ls -d "$ANDROID_SDK"/build-tools/* 2>/dev/null | sort -V | tail -n 1 || true)
+fi
+
+# Định vị aapt
+AAPT_BIN=""
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/aapt" ]; then
+  AAPT_BIN="$BUILD_TOOLS_DIR/aapt"
+elif command -v aapt >/dev/null 2>&1; then
+  AAPT_BIN="$(command -v aapt)"
+fi
+
+if [ -z "$AAPT_BIN" ]; then
+  echo "❌ LỖI: Không tìm thấy công cụ aapt!"
+  exit 1
+fi
+echo "✔ Sử dụng aapt: $AAPT_BIN"
+
+# Định vị zipalign
+ZIPALIGN_BIN=""
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/zipalign" ]; then
+  ZIPALIGN_BIN="$BUILD_TOOLS_DIR/zipalign"
+elif command -v zipalign >/dev/null 2>&1; then
+  ZIPALIGN_BIN="$(command -v zipalign)"
+fi
+
+if [ -z "$ZIPALIGN_BIN" ]; then
+  echo "❌ LỖI: Không tìm thấy công cụ zipalign!"
+  exit 1
+fi
+echo "✔ Sử dụng zipalign: $ZIPALIGN_BIN"
+
+# Định vị apksigner
+APKSIGNER_BIN=""
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/apksigner" ]; then
+  APKSIGNER_BIN="$BUILD_TOOLS_DIR/apksigner"
+elif command -v apksigner >/dev/null 2>&1; then
+  APKSIGNER_BIN="$(command -v apksigner)"
+fi
+
+if [ -z "$APKSIGNER_BIN" ]; then
+  echo "❌ LỖI: Không tìm thấy công cụ apksigner!"
+  exit 1
+fi
+echo "✔ Sử dụng apksigner: $APKSIGNER_BIN"
+
+# Định vị d8 hoặc dx
+D8_BIN=""
+DX_BIN=""
+DX_JAR=""
+
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/d8" ]; then
+  D8_BIN="$BUILD_TOOLS_DIR/d8"
+elif command -v d8 >/dev/null 2>&1; then
+  D8_BIN="$(command -v d8)"
+fi
+
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -x "$BUILD_TOOLS_DIR/dx" ]; then
+  DX_BIN="$BUILD_TOOLS_DIR/dx"
+elif command -v dx >/dev/null 2>&1; then
+  DX_BIN="$(command -v dx)"
+fi
+
+if [ -n "$BUILD_TOOLS_DIR" ] && [ -f "$BUILD_TOOLS_DIR/lib/dx.jar" ]; then
+  DX_JAR="$BUILD_TOOLS_DIR/lib/dx.jar"
+fi
+
+if [ -n "$D8_BIN" ]; then
+  echo "✔ Sử dụng bộ chuyển đổi mã byte D8: $D8_BIN"
+elif [ -n "$DX_BIN" ]; then
+  echo "✔ Sử dụng bộ chuyển đổi mã byte DX: $DX_BIN"
+elif [ -n "$DX_JAR" ]; then
+  echo "✔ Sử dụng dx.jar: $DX_JAR"
+else
+  echo "❌ LỖI: Không tìm thấy công cụ chuyển đổi bytecode (d8 hoặc dx)!"
   exit 1
 fi
 
-# Tìm DX_JAR
-# Trên GitHub runner, dx thường nằm trong build-tools
-for sdk_path in "${POSSIBLE_SDK_PATHS[@]}"; do
-  if [ -n "$sdk_path" ] && [ -d "$sdk_path" ]; then
-    DX_PATH=$(find "$sdk_path/build-tools" -name "dx.jar" | head -n 1 || true)
-    if [ -n "$DX_PATH" ] && [ -f "$DX_PATH" ]; then
-      DX_JAR="$DX_PATH"
-      echo "Found dx.jar: $DX_JAR"
-      break
-    fi
-  fi
-done
-
-# Nếu không thấy dx.jar, thử dùng lệnh dx trực tiếp (từ apt-get install dx)
-if [ -z "$DX_JAR" ]; then
-  if command -v dx >/dev/null 2>&1; then
-    echo "Using system 'dx' command."
-  else
-    echo "ERROR: dx not found. Please ensure 'dx' or 'android-sdk-build-tools' is installed."
-    exit 1
-  fi
-fi
-
-echo "1. Building fresh web assets with Vite..."
+# -----------------------------------------------------------------------------
+# 2. Xây dựng gói Web Assets bằng Vite
+# -----------------------------------------------------------------------------
+echo "[1/8] Build gói giao diện Web bằng Vite..."
 cd "$APPLET_DIR"
 rm -rf dist
 ./node_modules/.bin/vite build
 
-echo "2. Copying web dist to APK assets..."
+echo "[2/8] Sao chép Web dist vào assets của ứng dụng Android..."
 cp -r "$APPLET_DIR"/dist/* "$WORK"/assets/
 rm -f "$WORK"/assets/*.apk "$WORK"/assets/server.cjs* || true
 
-echo "3. Creating strings.xml..."
+# -----------------------------------------------------------------------------
+# 3. Tạo cấu hình AndroidManifest và Resource
+# -----------------------------------------------------------------------------
+echo "[3/8] Thiết lập AndroidManifest.xml & strings.xml..."
 cat << XML > "$WORK"/res/values/strings.xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -92,14 +155,12 @@ cat << XML > "$WORK"/res/values/strings.xml
 </resources>
 XML
 
-echo "4. Copying app icon..."
 if [ -f "$APPLET_DIR"/public/pwa-192x192.png ]; then
   cp "$APPLET_DIR"/public/pwa-192x192.png "$WORK"/res/mipmap-hdpi/ic_launcher.png
 else
   touch "$WORK"/res/mipmap-hdpi/ic_launcher.png
 fi
 
-echo "5. Creating AndroidManifest.xml..."
 cat << XML > "$WORK"/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -107,12 +168,15 @@ cat << XML > "$WORK"/AndroidManifest.xml
     android:versionCode="$VERSION_CODE"
     android:versionName="$VERSION_NAME">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -122,9 +186,10 @@ cat << XML > "$WORK"/AndroidManifest.xml
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
             android:exported="true"
-            android:hardwareAccelerated="true">
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -134,7 +199,10 @@ cat << XML > "$WORK"/AndroidManifest.xml
 </manifest>
 XML
 
-echo "6. Creating MainActivity.java..."
+# -----------------------------------------------------------------------------
+# 4. Tạo mã nguồn Java MainActivity với Bridge Auto-update và Camera Scanner
+# -----------------------------------------------------------------------------
+echo "[4/8] Tạo MainActivity.java và Java Bridge..."
 cat << 'JAVA' > "$WORK"/src/com/stocksync/app/MainActivity.java
 package com.stocksync.app;
 
@@ -249,43 +317,63 @@ public class MainActivity extends Activity {
         
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.3";
+            return "1.1.4";
         }
     }
 }
 JAVA
 
-echo "7. Generating R.java..."
-aapt package -f -m -J "$WORK"/gen -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -I "$ANDROID_JAR"
+# -----------------------------------------------------------------------------
+# 5. Biên dịch R.java và Java Class
+# -----------------------------------------------------------------------------
+echo "[5/8] Tạo R.java và biên dịch Java bytecode..."
+"$AAPT_BIN" package -f -m -J "$WORK"/gen -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -I "$ANDROID_JAR"
 
-echo "8. Compiling Java..."
-javac -source 1.8 -target 1.8 -bootclasspath "$ANDROID_JAR" -d "$WORK"/bin "$WORK"/gen/com/stocksync/app/R.java "$WORK"/src/com/stocksync/app/MainActivity.java
+javac -source 1.8 -target 1.8 -cp "$ANDROID_JAR" -d "$WORK"/bin "$WORK"/gen/com/stocksync/app/R.java "$WORK"/src/com/stocksync/app/MainActivity.java
 
-echo "9. DEXing..."
-if [ -n "$DX_JAR" ]; then
+# -----------------------------------------------------------------------------
+# 6. Chuyển đổi sang Dalvik Executable (classes.dex)
+# -----------------------------------------------------------------------------
+echo "[6/8] Tạo classes.dex bằng bộ biên dịch bytecode..."
+if [ -n "$D8_BIN" ]; then
+    CLASS_FILES=$(find "$WORK"/bin -name "*.class")
+    "$D8_BIN" --output "$WORK"/bin/ $CLASS_FILES
+elif [ -n "$DX_BIN" ]; then
+    "$DX_BIN" --dex --output="$WORK"/bin/classes.dex "$WORK"/bin
+elif [ -n "$DX_JAR" ]; then
     java -Xmx512m -jar "$DX_JAR" --dex --output="$WORK"/bin/classes.dex "$WORK"/bin
-else
-    dx --dex --output="$WORK"/bin/classes.dex "$WORK"/bin
 fi
 
-echo "10. Packaging unaligned APK..."
-aapt package -f -0 "" -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -A "$WORK"/assets -I "$ANDROID_JAR" -F "$WORK"/bin/unaligned.apk
+if [ ! -f "$WORK"/bin/classes.dex ]; then
+  echo "❌ LỖI: File classes.dex không được tạo thành công!"
+  exit 1
+fi
+echo "✔ Đã tạo thành công classes.dex"
+
+# -----------------------------------------------------------------------------
+# 7. Đóng gói, Zipalign và Ký APK với Keystore
+# -----------------------------------------------------------------------------
+echo "[7/8] Đóng gói APK và Zipalign..."
+"$AAPT_BIN" package -f -0 "" -M "$WORK"/AndroidManifest.xml -S "$WORK"/res -A "$WORK"/assets -I "$ANDROID_JAR" -F "$WORK"/bin/unaligned.apk
 cd "$WORK"/bin
-aapt add -0 dex unaligned.apk classes.dex
+"$AAPT_BIN" add -0 dex unaligned.apk classes.dex
 
-echo "11. Zipalign..."
-zipalign -f -p 4 "$WORK"/bin/unaligned.apk "$WORK"/bin/aligned.apk
+"$ZIPALIGN_BIN" -f -p 4 "$WORK"/bin/unaligned.apk "$WORK"/bin/aligned.apk
 
-echo "12. Signing APK..."
+echo "[8/8] Ký số APK bằng apksigner & keystore..."
 KEYSTORE="$APPLET_DIR/stocksync-release.keystore"
 if [ ! -f "$KEYSTORE" ]; then
   keytool -genkeypair -v -keystore "$KEYSTORE" -alias stocksync -keyalg RSA -keysize 2048 -validity 10000 -storepass stocksync123 -keypass stocksync123 -dname "CN=StockSync"
 fi
 
-apksigner sign --ks "$KEYSTORE" --ks-pass pass:stocksync123 --key-pass pass:stocksync123 --ks-key-alias stocksync "$WORK"/bin/aligned.apk
+"$APKSIGNER_BIN" sign --ks "$KEYSTORE" --ks-pass pass:stocksync123 --key-pass pass:stocksync123 --ks-key-alias stocksync "$WORK"/bin/aligned.apk
 
-echo "13. Finalizing..."
+# -----------------------------------------------------------------------------
+# Hoàn tất xuất xưởng
+# -----------------------------------------------------------------------------
 mkdir -p "$APPLET_DIR"/public
 cp "$WORK"/bin/aligned.apk "$APPLET_DIR"/public/StockSync.apk
 
-echo "=== BUILD SUCCESSFUL: v$VERSION_NAME ==="
+echo "=================================================="
+echo "🎉 BUILD APK THÀNH CÔNG: public/StockSync.apk (v$VERSION_NAME)"
+echo "=================================================="
