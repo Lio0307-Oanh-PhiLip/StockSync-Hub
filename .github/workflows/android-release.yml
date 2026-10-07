@@ -73,9 +73,10 @@ jobs:
           # Copy universal APK from Flutter build directory
           if [ -f "mobile-flutter/build/app/outputs/flutter-apk/app-release.apk" ]; then
             cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync.apk
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.1.5.apk
+            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.1.6.apk
           elif [ -f "public/StockSync.apk" ]; then
             cp public/StockSync.apk release-output/StockSync.apk
+            cp public/StockSync.apk release-output/StockSync-v1.1.6.apk
           fi
           ls -la release-output/
 
@@ -89,17 +90,17 @@ jobs:
       - name: 10. Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.5' }}
-          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.5' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.6' }}
+          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.6' }}
           body: |
-            ## 📱 StockSync Scanner APK - Official Release v1.1.5
+            ## 📱 StockSync Scanner APK - Official Release v1.1.6
             
             Ứng dụng Quét mã vạch / QR Kho linh kiện xác & đồng bộ Real-time.
             
-            ### ✨ Tính năng & Cải tiến v1.1.5:
+            ### ✨ Tính năng & Cải tiến v1.1.6:
             - **Chuẩn hóa chữ ký số**: Tích hợp Keystore Enterprise (RSA 2048-bit, Schemes v1+v2+v3), loại bỏ triệt để lỗi phân tích cú pháp (Parse Error) và cảnh báo Play Protect.
-            - **Tự động cập nhật**: So khớp phiên bản qua GitHub Releases REST API và tự động cài đè an toàn.
-            - **Quét Camera tốc độ cao**: Tối ưu thư viện `mobile_scanner` quét mã QR/Barcode cực nhạy và đồng bộ ngay lập tức tới máy chủ.
+            - **Tự động cập nhật**: So khớp phiên bản qua GitHub Releases REST API và tự động tải/kích hoạt cài đè an toàn.
+            - **Quét Camera tốc độ cao**: Tối ưu thư viện `mobile_scanner` quét mã QR/Barcode cực nhạy và đồng bộ ngay lập tức tới máy tính và server.
             
             ### 📥 Hướng dẫn cài đặt APK trên điện thoại:
             1. Tải file **`StockSync.apk`** đính kèm bên dưới.

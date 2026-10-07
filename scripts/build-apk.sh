@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-VERSION_CODE="15"
-VERSION_NAME="1.1.5"
+VERSION_CODE="16"
+VERSION_NAME="1.1.6"
 
 echo "=================================================="
 echo "  StockSync Hub - APK Build Engine v$VERSION_NAME"
@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
         
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.1.5";
+            return "1.1.6";
         }
     }
 }

@@ -16,7 +16,7 @@ export const UpdateChecker: React.FC = () => {
 
   // GitHub Repository Configuration
   const GITHUB_REPO = "philiptrinh1990/stocksync-hub"; 
-  const CURRENT_VERSION = "1.1.5";
+  const CURRENT_VERSION = "1.1.6";
 
   useEffect(() => {
     checkForUpdates();
@@ -147,7 +147,7 @@ export const UpdateChecker: React.FC = () => {
 
               <div className="p-3 bg-slate-800 rounded-xl border border-slate-700 text-[11px] space-y-1">
                 <p className="font-semibold text-slate-200">💡 Mẹo cho máy báo "Ứng dụng chưa được cài đặt":</p>
-                <p>Nếu bạn đã cài phiên bản cũ từ trước, hãy <b>Gỡ cài đặt (Uninstall) bản cũ</b> trước khi bấm cài bản mới v1.1.5 để tránh xung đột chữ ký Keystore.</p>
+                <p>Nếu bạn đã cài phiên bản cũ từ trước, hãy <b>Gỡ cài đặt (Uninstall) bản cũ</b> trước khi bấm cài bản mới v1.1.6 để tránh xung đột chữ ký Keystore.</p>
               </div>
             </div>
 
