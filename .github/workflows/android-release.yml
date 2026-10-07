@@ -41,6 +41,7 @@ jobs:
       - name: 4. Ensure Release Keystore Exists
         run: |
           mkdir -p mobile-flutter/android/app
+          mkdir -p mobile-flutter/android
           if [ ! -f "stocksync-release.keystore" ]; then
             keytool -genkeypair -v \
               -keystore stocksync-release.keystore \
@@ -54,6 +55,7 @@ jobs:
           fi
           cp stocksync-release.keystore mobile-flutter/android/app/stocksync-release.keystore
           cp stocksync-release.keystore mobile-flutter/stocksync-release.keystore
+          cp stocksync-release.keystore mobile-flutter/android/stocksync-release.keystore
 
       - name: 5. Check Flutter Environment & Doctor
         run: flutter doctor -v
@@ -73,10 +75,10 @@ jobs:
           # Copy universal APK from Flutter build directory
           if [ -f "mobile-flutter/build/app/outputs/flutter-apk/app-release.apk" ]; then
             cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync.apk
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.1.6.apk
+            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.1.7.apk
           elif [ -f "public/StockSync.apk" ]; then
             cp public/StockSync.apk release-output/StockSync.apk
-            cp public/StockSync.apk release-output/StockSync-v1.1.6.apk
+            cp public/StockSync.apk release-output/StockSync-v1.1.7.apk
           fi
           ls -la release-output/
 
@@ -90,14 +92,14 @@ jobs:
       - name: 10. Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.6' }}
-          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.6' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.7' }}
+          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.7' }}
           body: |
-            ## 📱 StockSync Scanner APK - Official Release v1.1.6
+            ## 📱 StockSync Scanner APK - Official Release v1.1.7
             
             Ứng dụng Quét mã vạch / QR Kho linh kiện xác & đồng bộ Real-time.
             
-            ### ✨ Tính năng & Cải tiến v1.1.6:
+            ### ✨ Tính năng & Cải tiến v1.1.7:
             - **Cấu hình AndroidX & Gradle 8.5**: Đã cấu hình chuẩn hóa hoàn toàn AndroidX (`gradle.properties`, `settings.gradle`, Android Gradle Plugin 8.2.2).
             - **Chuẩn hóa chữ ký số**: Tích hợp Keystore Enterprise (RSA 2048-bit, Schemes v1+v2+v3), loại bỏ triệt để lỗi phân tích cú pháp (Parse Error) và cảnh báo Play Protect.
             - **Tự động cập nhật**: So khớp phiên bản qua GitHub Releases REST API và tự động tải/kích hoạt cài đè an toàn.

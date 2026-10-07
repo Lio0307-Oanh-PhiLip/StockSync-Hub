@@ -14,12 +14,12 @@ if (localPropertiesFile.exists()) {
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
 if (flutterVersionCode == null) {
-    flutterVersionCode = '16'
+    flutterVersionCode = '17'
 }
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.1.6'
+    flutterVersionName = '1.1.7'
 }
 
 android {
@@ -50,32 +50,36 @@ android {
     }
 
     signingConfigs {
+        debug {
+            // standard debug
+        }
         release {
             def keystoreFile = [
                 file("stocksync-release.keystore"),
                 file("../stocksync-release.keystore"),
                 file("../../stocksync-release.keystore"),
                 file("../../../stocksync-release.keystore")
-            ].find { it.exists() }
+            ].find { it != null && it.exists() }
 
-            if (keystoreFile != null) {
+            if (keystoreFile != null && keystoreFile.exists()) {
                 storeFile keystoreFile
                 storePassword "stocksync123"
                 keyAlias "stocksync_enterprise"
                 keyPassword "stocksync123"
                 v1SigningEnabled true
                 v2SigningEnabled true
-            } else {
-                // Fallback to debug signature if release keystore is absent
-                signingConfig signingConfigs.debug
             }
         }
     }
 
     buildTypes {
         release {
-            // Fallback signing config
-            signingConfig signingConfigs.release
+            def hasKeystore = signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
