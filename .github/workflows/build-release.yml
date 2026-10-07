@@ -37,17 +37,23 @@ jobs:
       - name: Build Web Assets & Server Bundle
         run: npm run build
 
-      - name: Build Android APK (v1.0.6+)
+      - name: Build Android APK (v1.0.7)
         run: |
           chmod +x ./scripts/build-apk.sh
           ./scripts/build-apk.sh
 
-      - name: Create Debian Package (.deb) Stub / Archive
+      - name: Create Windows Portable Archive (.exe / .zip bundle)
+        run: |
+          mkdir -p build-win
+          cp -r dist package.json server.ts inventory_store.json build-win/
+          cd build-win && zip -r ../stocksync-windows-x64.zip * && cd ..
+
+      - name: Create Debian Package (.deb)
         run: |
           mkdir -p build-deb/usr/local/bin build-deb/DEBIAN
           cat << 'EOF' > build-deb/DEBIAN/control
           Package: stocksync-hub
-          Version: 1.0.6
+          Version: 1.0.7
           Section: utils
           Priority: optional
           Architecture: all
@@ -55,7 +61,7 @@ jobs:
           Description: StockSync Hub - Kho Xac Linh Kien & Quan Ly Kiem Ke
           EOF
           cp -r dist build-deb/usr/local/bin/stocksync-dist
-          dpkg-deb --build build-deb stocksync-hub_1.0.6_all.deb
+          dpkg-deb --build build-deb stocksync-hub_1.0.7_all.deb
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -63,8 +69,8 @@ jobs:
           name: release-artifacts
           path: |
             public/StockSync.apk
-            stocksync-hub_1.0.6_all.deb
-            dist/
+            stocksync-hub_1.0.7_all.deb
+            stocksync-windows-x64.zip
 
       - name: Release to GitHub Releases
         uses: softprops/action-gh-release@v1
@@ -72,6 +78,7 @@ jobs:
         with:
           files: |
             public/StockSync.apk
-            stocksync-hub_1.0.6_all.deb
+            stocksync-hub_1.0.7_all.deb
+            stocksync-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

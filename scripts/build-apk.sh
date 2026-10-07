@@ -34,8 +34,8 @@ cat << 'XML' > "$WORK"/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.stocksync.app"
-    android:versionCode="6"
-    android:versionName="1.0.6">
+    android:versionCode="7"
+    android:versionName="1.0.7">
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="28" />
     <uses-permission android:name="android.permission.INTERNET" />
