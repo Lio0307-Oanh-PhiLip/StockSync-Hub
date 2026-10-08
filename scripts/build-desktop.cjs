@@ -242,7 +242,7 @@ Description: StockSync Hub - Ung dung kiem tra xac linh kien va may chu dong bo 
   const debOutputFile = path.join(DOWNLOAD_DIR, `StockSync-Hub-v${APP_VERSION}-linux-amd64.deb`);
   execSync(`dpkg-deb --root-owner-group -Zgzip --build "${debRoot}" "${debOutputFile}"`, { stdio: 'inherit' });
   fs.copyFileSync(debOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub.deb'));
-  fs.copyFileSync(debOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.8-linux-amd64.deb'));
+  fs.copyFileSync(debOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.9-linux-amd64.deb'));
   console.log(`  ✔ Đã đóng gói thành công file Linux .deb: ${debOutputFile} (${(fs.statSync(debOutputFile).size / (1024*1024)).toFixed(2)} MB)`);
 
   // 4.9 Đóng gói file AppImage chạy trực tiếp cho Linux (Khắc phục hoàn toàn lỗi Archive Manager)
@@ -272,7 +272,7 @@ exec "\${HERE}/usr/bin/stocksync-hub-bin" "\$@"
     const appImageOut = path.join(DOWNLOAD_DIR, `StockSync-Hub-v${APP_VERSION}-linux-x64.AppImage`);
     execSync(`ARCH=x86_64 "${appImageToolPath}" "${appDir}" "${appImageOut}"`, { stdio: 'inherit' });
     fs.copyFileSync(appImageOut, path.join(DOWNLOAD_DIR, 'StockSync-Hub.AppImage'));
-    fs.copyFileSync(appImageOut, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.8-linux-x64.AppImage'));
+    fs.copyFileSync(appImageOut, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.9-linux-x64.AppImage'));
     console.log(`  ✔ Đã đóng gói thành công file Linux .AppImage: ${appImageOut} (${(fs.statSync(appImageOut).size / (1024*1024)).toFixed(2)} MB)`);
   }
 
@@ -322,7 +322,7 @@ try {
   });
 
   fs.copyFileSync(winExeOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub.exe'));
-  fs.copyFileSync(winExeOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.8-windows-x64.exe'));
+  fs.copyFileSync(winExeOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.9-windows-x64.exe'));
   console.log(`  ✔ Đã đóng gói thành công file Windows .exe: ${winExeOutputFile} (${(fs.statSync(winExeOutputFile).size / (1024*1024)).toFixed(2)} MB)`);
 
   // 5.3 Tạo file chạy nhanh Chay-StockSync.bat cạnh file .exe

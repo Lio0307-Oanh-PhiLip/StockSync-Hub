@@ -189,7 +189,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
     });
 
     try {
-      // 1. Check local file cache first (previous scans)
+      // 1. Check local file cache first (previous scans) for instant boot
       final dir = await getApplicationDocumentsDirectory();
       final cacheFile = File('${dir.path}/stocksync_inventory.json');
       if (await cacheFile.exists()) {
@@ -198,35 +198,31 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         if (data is List && data.isNotEmpty) {
           final List<InventoryItem> cached = data.map((j) => InventoryItem.fromJson(j)).toList();
           _populateItems(cached);
-          setState(() {
-            _isLoadingData = false;
-          });
-          return;
+        }
+      } else {
+        // 2. Load embedded default inventory bundle if no cache exists
+        final assetContent = await rootBundle.loadString('assets/data/inventory_store.json');
+        final data = json.decode(assetContent);
+        final List oowRaw = data['oow'] ?? [];
+        final List iwRaw = data['iw'] ?? [];
+        final List<InventoryItem> bundled = [];
+        for (var item in [...oowRaw, ...iwRaw]) {
+          bundled.add(InventoryItem.fromJson(item));
+        }
+        if (bundled.isNotEmpty) {
+          _populateItems(bundled);
         }
       }
-    } catch (_) {}
-
-    // 2. Load embedded default inventory bundle (312 items matching OPPO Phú Lâm VN001021)
-    try {
-      final assetContent = await rootBundle.loadString('assets/data/inventory_store.json');
-      final data = json.decode(assetContent);
-      final List oowRaw = data['oow'] ?? [];
-      final List iwRaw = data['iw'] ?? [];
-      final List<InventoryItem> bundled = [];
-      for (var item in [...oowRaw, ...iwRaw]) {
-        bundled.add(InventoryItem.fromJson(item));
-      }
-      if (bundled.isNotEmpty) {
-        _populateItems(bundled);
-      }
     } catch (e) {
-      debugPrint('[Asset Load Error]: $e');
+      debugPrint('[Initial Load Error]: $e');
     } finally {
       if (mounted) {
         setState(() {
           _isLoadingData = false;
         });
       }
+      // Always trigger fresh sync from PC Hub immediately
+      _syncViaHttp();
     }
   }
 
@@ -267,8 +263,8 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         final data = json.decode(content);
         if (data['serverUrl'] != null && data['serverUrl'].toString().isNotEmpty) {
           final saved = data['serverUrl'].toString();
-          // Auto fix legacy internal dev url or dead applet URL to current public shared url
-          if (saved.contains('raxzxcsor7d6q2kcn7kvxc') || saved.contains('ais-dev-')) {
+          // Auto fix legacy internal dev url, obsolete applet URLs, or broken cloud URLs to current active public shared url
+          if (!saved.contains('192.168.') && !saved.contains('10.0.2.') && !saved.contains('localhost') && !saved.contains('cu7gkxvrv4htowkh5nhxq4')) {
             _serverUrl = defaultCloudWsUrl;
             _saveServerUrl(defaultCloudWsUrl);
           } else {
@@ -1725,8 +1721,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
                 label: const Text('Cloud Server', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 backgroundColor: const Color(0xFFECFDF5),
                 onPressed: () {
-                  const defaultCloud = "wss://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app/ws";
-                  urlCtrl.text = defaultCloud;
+                  urlCtrl.text = defaultCloudWsUrl;
                 },
               ),
               ActionChip(
@@ -1764,9 +1759,8 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () {
-                  const defaultCloud = "wss://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app/ws";
-                  urlCtrl.text = defaultCloud;
-                  _updateAndConnectServerUrl(defaultCloud);
+                  urlCtrl.text = defaultCloudWsUrl;
+                  _updateAndConnectServerUrl(defaultCloudWsUrl);
                 },
                 icon: const Icon(Icons.restore, size: 18),
                 label: const Text('Mặc định'),
@@ -1841,7 +1835,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
             leading: const Icon(Icons.system_update_rounded, color: Color(0xFF6366F1)),
             title: const Text('Kiểm tra bản cập nhật mới (GitHub Releases)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: const Text('Phiên bản hiện tại: v1.2.8 (Build 128)', style: TextStyle(fontSize: 11)),
+            subtitle: const Text('Phiên bản hiện tại: v1.2.9 (Build 129)', style: TextStyle(fontSize: 11)),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
             onTap: () => UpgradeService.checkForUpdate(context),
           ),

@@ -10,8 +10,14 @@ import {
   generateRealisticWarehouseDataset, 
   parseImportFile, 
   calculateReportSummary, 
-  exportFullExcelReport 
+  exportFullExcelReport,
+  generateExcelArrayBuffer
 } from './utils/excel';
+import { 
+  uploadExcelToGoogleDrive,
+  getDriveAccessToken,
+  driveGoogleSignIn
+} from './utils/googleDriveService';
 import { 
   broadcastDataSync, 
   subscribeToDataSync, 
@@ -628,30 +634,39 @@ export default function App() {
   };
 
   // Save & Push to Drive execution
-  const handleSaveDrive = () => {
-    if (!driveUrl.trim()) {
-      // Nếu chưa cài đặt link Drive, mở Modal Cấu Hình để người dùng dán link Drive của mình
-      setIsDriveModalOpen(true);
-      return;
-    }
-
+  const handleSaveDrive = async () => {
     setIsSavingDrive(true);
     const nowTime = new Date().toLocaleTimeString('vi-VN');
 
-    // 1. Xuất file báo cáo Excel 5 Sheet dự phòng
+    // 1. Tạo file báo cáo Excel 5 Sheet trong bộ nhớ
+    const { fileName, arrayBuffer } = generateExcelArrayBuffer(dataIW, dataOOW, scCode);
+
+    // 2. Xuất file về máy tính tự động cho người dùng
     exportFullExcelReport(dataIW, dataOOW, scCode);
 
-    // 2. Đẩy dữ liệu đối chiếu lên Cloud Server
+    // 3. Đẩy toàn bộ dữ liệu đối chiếu lên Cloud Server & Local Storage
     pushFullStateToServer(dataIW, dataOOW, syncSourceInfo, 'merge_keep_scanned');
 
-    setTimeout(() => {
+    // 4. Đẩy file trực tiếp lên Google Drive của người dùng qua Google Drive API
+    try {
+      const driveRes = await uploadExcelToGoogleDrive(arrayBuffer, fileName, driveUrl);
       setIsSavingDrive(false);
       setLastDriveSavedAt(nowTime);
       try {
         localStorage.setItem('stocksync_last_drive_saved_at', nowTime);
       } catch {}
-      showAlert(`☁ Đã lưu & đẩy lịch sử đối chiếu kho xác lên Google Drive thành công lúc ${nowTime}!`, 'success');
-    }, 1000);
+
+      showAlert(`🎉 ĐÃ ĐẨY THÀNH CÔNG: File '${driveRes.name}' (5 sheet) đã được tải trực tiếp lên Google Drive lúc ${nowTime}!`, 'success');
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.8 } });
+    } catch (err: any) {
+      setIsSavingDrive(false);
+      setLastDriveSavedAt(nowTime);
+      try {
+        localStorage.setItem('stocksync_last_drive_saved_at', nowTime);
+      } catch {}
+      console.warn('[Drive Upload Fallback]:', err);
+      showAlert(`☁ Đã xuất file báo cáo Excel 5 sheet & lưu đối chiếu lúc ${nowTime}! (${err.message || 'Cần đăng nhập Google để đẩy trực tiếp'})`, 'info');
+    }
   };
 
   // 10-Minute Auto-Save Background Timer
@@ -665,13 +680,24 @@ export default function App() {
         try {
           localStorage.setItem('stocksync_last_drive_saved_at', nowTime);
         } catch {}
+
         pushFullStateToServer(dataIW, dataOOW, syncSourceInfo, 'merge_keep_scanned');
+
+        // Tự động đóng gói & đẩy file 5 sheet lên Google Drive nếu đã đăng nhập Token
+        if (getDriveAccessToken()) {
+          const { fileName, arrayBuffer } = generateExcelArrayBuffer(dataIW, dataOOW, scCode);
+          uploadExcelToGoogleDrive(arrayBuffer, fileName, driveUrl).then(() => {
+            console.log(`[Auto Drive Upload Success] ${fileName}`);
+          }).catch(e => {
+            console.warn('[Auto Drive Upload Error]:', e);
+          });
+        }
         console.log(`[Auto-Drive-Backup] Tự động đẩy lưu đối chiếu lên Drive & Cloud lúc ${nowTime}`);
       }
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [autoSaveDriveEnabled, autoSaveDriveInterval, dataIW, dataOOW, syncSourceInfo]);
+  }, [autoSaveDriveEnabled, autoSaveDriveInterval, dataIW, dataOOW, syncSourceInfo, scCode, driveUrl]);
 
   // Open modal for a specific part code
   const handleOpenPartModal = (maLK: string, bhDv?: string) => {

@@ -1,4 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { User } from 'firebase/auth';
+import { 
+  initDriveAuth, 
+  driveGoogleSignIn, 
+  driveLogout, 
+  getDriveAccessToken 
+} from '../utils/googleDriveService';
 import { 
   CloudUpload, 
   HardDrive, 
@@ -13,7 +20,9 @@ import {
   FolderPlus,
   ShieldCheck,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 interface GoogleDriveModalProps {
@@ -42,8 +51,9 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   const [inputUrl, setInputUrl] = useState<string>(driveUrl || '');
   const [isAutoEnabled, setIsAutoEnabled] = useState<boolean>(autoSaveEnabled);
   const [intervalMins, setIntervalMins] = useState<number>(autoSaveIntervalMinutes);
-  const [copied, setCopied] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setInputUrl(driveUrl || '');
@@ -51,7 +61,36 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     setIntervalMins(autoSaveIntervalMinutes);
   }, [driveUrl, autoSaveEnabled, autoSaveIntervalMinutes, isOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      const unsubscribe = initDriveAuth(
+        (user) => setGoogleUser(user),
+        () => setGoogleUser(null)
+      );
+      return () => unsubscribe();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleGoogleLogin = async () => {
+    setIsAuthLoading(true);
+    try {
+      const res = await driveGoogleSignIn();
+      if (res?.user) {
+        setGoogleUser(res.user);
+      }
+    } catch (e: any) {
+      alert(`Đăng nhập Google thất bại: ${e.message || 'Lỗi kết nối'}`);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleGoogleLogout = async () => {
+    await driveLogout();
+    setGoogleUser(null);
+  };
 
   const handlePasteClipboard = async () => {
     try {
@@ -108,6 +147,51 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 space-y-5 max-h-[82vh] overflow-y-auto text-slate-700">
           
+          {/* SECTION 0: TÀI KHOẢN GOOGLE KẾT NỐI API */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-xs shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+                  Trạng Thái Đẩy File Trực Tiếp Google Drive API
+                </div>
+                {googleUser ? (
+                  <div className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Đã kết nối: {googleUser.email || googleUser.displayName || 'Google Account'}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-600 mt-0.5">
+                    Đăng nhập tài khoản Google để ứng dụng tải file 5 sheet thẳng lên Drive của bạn
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {googleUser ? (
+              <button
+                type="button"
+                onClick={handleGoogleLogout}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-rose-700 border border-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng Xuất</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={isAuthLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-2 shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                <CloudUpload className="w-4 h-4" />
+                <span>{isAuthLoading ? 'Đang Kết Nối...' : 'Đăng Nhập Google Drive'}</span>
+              </button>
+            )}
+          </div>
+
           {/* SECTION 1: CẤU HÌNH PHẦN MỀM & LINK DRIVE */}
           <div className="bg-slate-50 border-2 border-emerald-500/30 rounded-2xl p-4 space-y-3.5 shadow-2xs">
             <div className="flex items-center justify-between flex-wrap gap-2">

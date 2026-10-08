@@ -16,7 +16,7 @@ class UpgradeService {
   static Future<void> checkForUpdate(BuildContext context, {bool silent = false}) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.2.8";
+      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.2.9";
 
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
@@ -217,7 +217,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                 ),
               )
             ] else ...[
-              const Text('Bản cập nhật v1.2.8 bổ sung danh sách 312 linh kiện kho xác, hỗ trợ đồng bộ 2 chiều Realtime qua WebSocket & HTTP, và khắc phục toàn diện lỗi cài đặt.'),
+              const Text('Bản cập nhật v1.2.9 bổ sung tính năng đồng bộ tức thời 2 chiều 100% giữa PC Hub & APK Điện thoại, tích hợp Google Drive 5 sheet trực tiếp, và tự động tối ưu hóa mạng.'),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -225,7 +225,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('💡 Mẹo: Nếu đang có phiên bản cũ bị lỗi, hãy gỡ bản cũ trước khi cài bản v1.2.7.', style: TextStyle(fontSize: 11, color: Colors.black87)),
+                child: const Text('💡 Mẹo: Nếu đang sử dụng phiên bản cũ v1.2.8, hãy bấm "Tải & Cài đặt ngay" để cập nhật lên v1.2.9.', style: TextStyle(fontSize: 11, color: Colors.black87)),
               )
             ],
           ],

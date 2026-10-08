@@ -434,7 +434,11 @@ export const buildStandardRows = (items: InventoryItem[]): any[][] => {
   return rows;
 };
 
-export const exportFullExcelReport = (dataIW: InventoryItem[], dataOOW: InventoryItem[], scCode: string = 'VN001021') => {
+export const generateExcelArrayBuffer = (
+  dataIW: InventoryItem[], 
+  dataOOW: InventoryItem[], 
+  scCode: string = 'VN001021'
+): { fileName: string; arrayBuffer: ArrayBuffer } => {
   const summary = calculateReportSummary(dataIW, dataOOW);
   const now = new Date();
   const dateStr = now.toLocaleDateString('vi-VN');
@@ -487,7 +491,22 @@ export const exportFullExcelReport = (dataIW: InventoryItem[], dataOOW: Inventor
   XLSX.utils.book_append_sheet(workbook, wsOOW, 'OOW');
 
   const fileName = `KiemKe_XacLinhKien_${scCode}_${now.toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(workbook, fileName);
+  const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+  return { fileName, arrayBuffer };
+};
+
+export const exportFullExcelReport = (dataIW: InventoryItem[], dataOOW: InventoryItem[], scCode: string = 'VN001021') => {
+  const { fileName, arrayBuffer } = generateExcelArrayBuffer(dataIW, dataOOW, scCode);
+  const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
 
 export const downloadTemplate = () => {

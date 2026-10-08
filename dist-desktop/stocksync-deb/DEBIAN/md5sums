@@ -1,5 +1,5 @@
-238cbed67393195a8b4102f4c6cddbbd  opt/stocksync-hub/server.cjs
-7a3de5cd7070abe318a835ebf3ed0b18  opt/stocksync-hub/stocksync-hub-bin
+ebf8d820ca55b5a59c9f55f8540d6617  opt/stocksync-hub/server.cjs
+7771480640a933122ab5e3768b8b1ef9  opt/stocksync-hub/stocksync-hub-bin
 1b42b1e35a14bcbabaa0f5ab45483dd1  usr/bin/stocksync-hub
 f5b0c22f036759b3067b15ba1f081a76  usr/share/applications/stocksync-hub.desktop
 a3c5de9af80cf12a0f95ee7cb4a3824b  usr/share/icons/hicolor/512x512/apps/stocksync-hub.png

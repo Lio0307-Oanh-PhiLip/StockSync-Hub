@@ -38,7 +38,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
   const [isRefreshingRelease, setIsRefreshingRelease] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [remoteTag, setRemoteTag] = useState<string>('v1.2.8');
+  const [remoteTag, setRemoteTag] = useState<string>('v1.2.9');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
   // Connection mode: 'web' (open in mobile browser - recommended & works immediately), 'wifi' (local LAN for local PC), 'cloud' (remote cloud / tunnel)
