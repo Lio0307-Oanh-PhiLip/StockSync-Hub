@@ -1,0 +1,10 @@
+Package: stocksync-hub
+Version: 1.2.9
+Section: utils
+Priority: optional
+Architecture: amd64
+Installed-Size: 132549
+Maintainer: StockSync Logistics <philiptrinh30@gmail.com>
+Homepage: https://github.com/Lio0307-Oanh-PhiLip/StockSync-Hub
+Description: StockSync Hub - Ung dung kiem tra xac linh kien va may chu dong bo ma vach PC
+ Ung dung desktop ho tro dong bo hai chieu giua may tinh PC va dien thoai di dong APK qua mang Wi-Fi LAN.

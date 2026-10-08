@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=StockSync Hub
+GenericName=Warehouse Barcode Scanner & Sync Hub
+Comment=Kiem tra xac linh kien & quet ma vach kho (OPPO VN001021)
+Exec=/usr/bin/stocksync-hub
+Icon=stocksync-hub
+Terminal=true
+Categories=Utility;Office;
+Keywords=stocksync;warehouse;scanner;barcode;oppo;
+StartupNotify=true

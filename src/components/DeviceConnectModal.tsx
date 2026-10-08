@@ -14,9 +14,18 @@ import {
   Cloud,
   HelpCircle,
   RefreshCw,
-  Radio
+  Radio,
+  Monitor,
+  Sparkles
 } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { 
+  fetchLatestRelease, 
+  ReleaseInfo, 
+  formatFileSize, 
+  CURRENT_APP_VERSION, 
+  GITHUB_REPO 
+} from '../services/githubReleaseService';
 
 interface DeviceConnectModalProps {
   isOpen: boolean;
@@ -26,8 +35,10 @@ interface DeviceConnectModalProps {
 export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, onClose }) => {
   const { isInstallable, install } = usePWAInstall();
   const [copiedMain, setCopiedMain] = useState(false);
+  const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
+  const [isRefreshingRelease, setIsRefreshingRelease] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [remoteTag, setRemoteTag] = useState<string>('v1.2.7');
+  const [remoteTag, setRemoteTag] = useState<string>('v1.2.8');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
   // Connection mode: 'web' (open in mobile browser - recommended & works immediately), 'wifi' (local LAN for local PC), 'cloud' (remote cloud / tunnel)
@@ -105,22 +116,22 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
     } catch (_) {}
   };
 
-  const fetchLatestApkUrl = async () => {
+  const fetchLatestApkUrl = async (force: boolean = false) => {
+    setIsRefreshingRelease(true);
     try {
-      const repo = "Lio0307-Oanh-PhiLip/StockSync-Hub";
-      const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
-      if (response.ok) {
-        const data = await response.json();
-        const tag = (data.tag_name || '').trim();
-        setRemoteTag(tag);
-        setIsLatestOnGitHub(tag.includes('1.2.8'));
-        const apkAsset = data.assets?.find((a: any) => a.name.toLowerCase().endsWith('.apk'));
-        if (apkAsset) {
-          setDownloadUrl(apkAsset.browser_download_url);
+      const data = await fetchLatestRelease(force);
+      if (data) {
+        setReleaseInfo(data);
+        setRemoteTag(data.tag_name);
+        setIsLatestOnGitHub(data.tag_name.includes(CURRENT_APP_VERSION) || data.tag_name.includes('1.2.9'));
+        if (data.apkUrl) {
+          setDownloadUrl(data.apkUrl);
         }
       }
     } catch (e) {
-      console.warn("Lỗi fetch link APK mới nhất:", e);
+      console.warn("Lỗi fetch thông tin release GitHub:", e);
+    } finally {
+      setIsRefreshingRelease(false);
     }
   };
 
@@ -412,31 +423,50 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Bản Code v1.2.8 (Sẵn sàng)
+                    Bản Code v{CURRENT_APP_VERSION}
                   </span>
                   <span className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
                     Bản Release trên GitHub: {remoteTag}
                   </span>
+                  {releaseInfo?.apkSize && (
+                    <span className="text-[11px] font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200">
+                      Dung lượng: {formatFileSize(releaseInfo.apkSize)}
+                    </span>
+                  )}
                 </div>
               </div>
+
+              <button
+                onClick={() => fetchLatestApkUrl(true)}
+                disabled={isRefreshingRelease}
+                className="flex items-center gap-1 text-[11px] text-blue-700 hover:text-blue-900 bg-blue-100/70 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-300 transition shrink-0"
+                title="Làm mới trạng thái từ GitHub"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingRelease ? 'animate-spin' : ''}`} />
+                <span>{isRefreshingRelease ? 'Đang check...' : 'Kiểm tra GitHub'}</span>
+              </button>
             </div>
 
             <a
-              href={downloadUrl || "https://github.com/Lio0307-Oanh-PhiLip/StockSync-Hub/releases"}
+              href={releaseInfo?.apkUrl || downloadUrl || "/download/StockSync.apk"}
               download="StockSync.apk"
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>{isLatestOnGitHub ? 'Tải Ngay StockSync-v1.2.8.apk' : `Tải APK Hiện Có (${remoteTag})`}</span>
+              <span>
+                {releaseInfo?.apkUrl 
+                  ? `Tải StockSync APK (${remoteTag}) - Máy Chủ GitHub CDN`
+                  : `Tải APK Hiện Có (${remoteTag})`}
+              </span>
             </a>
 
             {!isLatestOnGitHub && (
               <div className="mt-2.5 p-3 bg-amber-50/90 border border-amber-300 rounded-xl text-xs text-amber-950 space-y-1">
                 <p className="font-bold flex items-center gap-1.5 text-amber-900">
-                  <span>⚡</span> Đẩy lên GitHub để nhận file APK v1.2.8:
+                  <span>⚡</span> Đẩy lên GitHub để tự động tạo bản cài đặt mới:
                 </p>
                 <p className="text-slate-700 leading-relaxed">
-                  Bản code <b>v1.2.8</b> đã hoàn thành trong AI Studio. Hãy nhấn nút <b>"Push changes to GitHub"</b> ở thanh công cụ góc phải. GitHub Actions sẽ tự động biên dịch và tạo file <b>StockSync-v1.2.8.apk</b> mới nhất.
+                  Mã nguồn đã hoàn thành trong AI Studio. Hãy nhấn nút <b>"Push changes to GitHub"</b> ở thanh công cụ góc phải. GitHub Actions sẽ tự động biên dịch và tạo đầy đủ file APK, Windows EXE và Linux DEB/AppImage mới nhất.
                 </p>
               </div>
             )}
@@ -450,6 +480,103 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
               </p>
               <p>
                 2. Nếu Google Play Protect cảnh báo, chọn <strong>"Chi tiết khác"</strong> &gt; <strong>"Vẫn cài đặt"</strong>.
+              </p>
+            </div>
+          </div>
+
+          {/* LỰA CHỌN: TẢI BỘ CÀI DESKTOP APP CHO MÁY TÍNH PC (WINDOWS & LINUX) */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-4 shadow-md border border-slate-700/80">
+            <div className="flex items-start justify-between gap-3 mb-2.5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    PC Desktop App
+                  </span>
+                  <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4 text-amber-400" />
+                    Cài Đặt App Cho Máy Tính PC (Windows &amp; Linux)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  Bắt buộc khi sử dụng kết nối <b>Wi-Fi LAN nội bộ offline (không dùng Internet)</b>: Cài app lên PC để tự động chạy máy chủ kho &amp; cổng WebSocket cho điện thoại kết nối tức thì.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
+              {/* Windows .exe */}
+              <a
+                href={releaseInfo?.windowsExeUrl || "/download/StockSync-Hub-v1.2.8-windows-x64.exe"}
+                download="StockSync-Hub.exe"
+                className="flex items-center justify-between p-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-xl border border-blue-400/30 transition shadow-sm group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Monitor className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white">Bản Windows (.exe)</div>
+                    <div className="text-[10px] text-blue-200">
+                      {releaseInfo?.windowsExeSize ? formatFileSize(releaseInfo.windowsExeSize) : 'Win 10, 11'} • Chạy ngay
+                    </div>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-blue-200 group-hover:text-white transition shrink-0" />
+              </a>
+
+              {/* Linux .AppImage */}
+              <a
+                href={releaseInfo?.linuxAppImageUrl || "/download/StockSync-Hub-v1.2.8-linux-x64.AppImage"}
+                download="StockSync-Hub.AppImage"
+                className="flex items-center justify-between p-3 bg-emerald-700 hover:bg-emerald-600 active:scale-98 text-white rounded-xl border border-emerald-500/30 transition shadow-sm group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Download className="w-4 h-4 text-amber-300" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white">Linux AppImage</div>
+                    <div className="text-[10px] text-emerald-200">
+                      {releaseInfo?.linuxAppImageSize ? formatFileSize(releaseInfo.linuxAppImageSize) : 'Portable'} • Chạy 1 chạm
+                    </div>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-emerald-200 group-hover:text-white transition shrink-0" />
+              </a>
+
+              {/* Linux .deb */}
+              <a
+                href={releaseInfo?.linuxDebUrl || "/download/StockSync-Hub-v1.2.8-linux-amd64.deb"}
+                download="StockSync-Hub.deb"
+                className="flex items-center justify-between p-3 bg-slate-700/80 hover:bg-slate-700 active:scale-98 text-white rounded-xl border border-slate-600 transition shadow-sm group cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/10 rounded-lg">
+                    <Download className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-white">Bản Linux (.deb)</div>
+                    <div className="text-[10px] text-slate-300">
+                      {releaseInfo?.linuxDebSize ? formatFileSize(releaseInfo.linuxDebSize) : 'Ubuntu/Debian'}
+                    </div>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-slate-400 group-hover:text-white transition shrink-0" />
+              </a>
+            </div>
+
+            <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-white flex items-center gap-1.5">
+                <span>💡</span> Hướng dẫn chạy &amp; cài đặt không bị lỗi:
+              </p>
+              <p>
+                • <b>Windows (.exe)</b>: Tải về nhấp đúp là chạy ngay. Tự động tìm cổng trống (3000, 3001...) và mở trình duyệt, không bao giờ tự đóng.
+              </p>
+              <p>
+                • <b>Linux AppImage (Khuyên dùng nhất)</b>: Nhấp chuột phải vào file <code>.AppImage</code> &gt; chọn <b>Properties</b> &gt; tick <b>"Allow executing file as program"</b> &gt; nhấp đúp để mở chạy ngay 1 chạm (không cần cài đặt, không cần root).
+              </p>
+              <p>
+                • <b>Linux (.deb)</b>: Nhấp chuột phải chọn <b>"Open With Software Install"</b> (hoặc chạy lệnh: <code>sudo dpkg -i StockSync-Hub-v1.2.8-linux-amd64.deb</code>). <i>Lưu ý: Không dùng Archive Manager để mở file .deb.</i>
               </p>
             </div>
           </div>

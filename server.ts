@@ -485,6 +485,31 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
+  // Static download handlers for Desktop (.exe, .deb) and Android (.apk)
+  app.get(['/download/:filename', '/:filename'], (req, res, next) => {
+    const filename = req.params.filename;
+    if (filename && (filename.endsWith('.apk') || filename.endsWith('.exe') || filename.endsWith('.deb') || filename.endsWith('.zip'))) {
+      const publicPath = path.join(process.cwd(), 'public', 'download', filename);
+      const fallbackPublic = path.join(process.cwd(), 'public', filename);
+      const targetPath = fs.existsSync(publicPath) ? publicPath : fs.existsSync(fallbackPublic) ? fallbackPublic : null;
+      if (targetPath) {
+        const stat = fs.statSync(targetPath);
+        let contentType = 'application/octet-stream';
+        if (filename.endsWith('.apk')) contentType = 'application/vnd.android.package-archive';
+        if (filename.endsWith('.exe')) contentType = 'application/vnd.microsoft.portable-executable';
+        if (filename.endsWith('.deb')) contentType = 'application/vnd.debian.binary-package';
+        if (filename.endsWith('.zip')) contentType = 'application/zip';
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return fs.createReadStream(targetPath).pipe(res);
+      }
+    }
+    next();
+  });
+
   // API Endpoints
   app.get('/api/health', (req, res) => {
     res.json({

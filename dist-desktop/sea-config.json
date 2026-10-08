@@ -1,0 +1,5 @@
+{
+  "main": "/app/applet/dist-desktop/desktop-bundle.cjs",
+  "output": "/app/applet/dist-desktop/sea-prep.blob",
+  "disableExperimentalSEAWarning": true
+}

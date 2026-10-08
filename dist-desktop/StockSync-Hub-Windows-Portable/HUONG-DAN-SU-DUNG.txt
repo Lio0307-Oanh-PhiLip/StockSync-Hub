@@ -1,0 +1,19 @@
+========================================================================
+     HƯỚNG DẪN SỬ DỤNG STOCKS YNC HUB BẢN DESKTOP (WINDOWS)
+========================================================================
+
+1. CÁCH KHỞI ĐỘNG:
+   - Nhấp đúp vào file "StockSync-Hub.exe" hoặc "Chay-StockSync.bat".
+   - Ứng dụng sẽ tự động mở trình duyệt web tại địa chỉ: http://localhost:3000
+
+2. KẾT NỐI VỚI APP ĐIỆN THOẠI (APK) QUA WI-FI:
+   - Đảm bảo máy tính PC và điện thoại cùng kết nối vào một mạng Wi-Fi (hoặc phát Wi-Fi từ điện thoại cho PC).
+   - Trên màn hình máy tính, nhấp vào biểu tượng điện thoại (hoặc nút "Kết Nối").
+   - Chọn tab "2. Wi-Fi LAN (App APK)".
+   - Mở App StockSync trên điện thoại, quét mã QR trên màn hình PC để kết nối.
+   - Khi quét mã linh kiện trên điện thoại, số lượng và trạng thái sẽ nhảy tức thì lên màn hình PC!
+
+3. THÔNG TIN BẢN QUYỀN & LIÊN HỆ:
+   - Phiên bản: v1.2.8
+   - Kho áp dụng: OPPO Experience & Service Store Phú Lâm (VN001021)
+========================================================================

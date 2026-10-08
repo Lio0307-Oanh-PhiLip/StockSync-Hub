@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+# Khởi động StockSync Hub Desktop
+if [ -x "/opt/stocksync-hub/stocksync-hub-bin" ]; then
+  exec /opt/stocksync-hub/stocksync-hub-bin "$@"
+elif command -v node >/dev/null 2>&1; then
+  exec node /opt/stocksync-hub/server.cjs "$@"
+else
+  echo "Lỗi: Vui lòng cài đặt Node.js (sudo apt install nodejs)"
+  exit 1
+fi

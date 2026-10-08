@@ -12,21 +12,38 @@ export default defineConfig(() => {
       react(), 
       tailwindcss(),
       {
-        name: 'serve-apk',
+        name: 'serve-downloads',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (req.url && (req.url.startsWith('/StockSync.apk') || req.url.startsWith('/download/StockSync.apk'))) {
-              const apkPath = path.resolve(__dirname, 'public/StockSync.apk');
-              if (fs.existsSync(apkPath)) {
-                const stat = fs.statSync(apkPath);
-                res.writeHead(200, {
-                  'Content-Type': 'application/vnd.android.package-archive',
-                  'Content-Length': stat.size,
-                  'Content-Disposition': 'attachment; filename="StockSync.apk"',
-                  'Cache-Control': 'no-cache'
-                });
-                fs.createReadStream(apkPath).pipe(res);
-                return;
+            if (req.url && (req.url.startsWith('/download/') || req.url.endsWith('.apk') || req.url.endsWith('.exe') || req.url.endsWith('.deb') || req.url.endsWith('.zip'))) {
+              const urlParts = req.url.split('?')[0].split('/');
+              const filename = urlParts[urlParts.length - 1];
+              if (filename) {
+                const candidates = [
+                  path.resolve(__dirname, 'public/download', filename),
+                  path.resolve(__dirname, 'public', filename)
+                ];
+                for (const filePath of candidates) {
+                  if (fs.existsSync(filePath)) {
+                    const stat = fs.statSync(filePath);
+                    let contentType = 'application/octet-stream';
+                    if (filename.endsWith('.apk')) contentType = 'application/vnd.android.package-archive';
+                    else if (filename.endsWith('.deb')) contentType = 'application/vnd.debian.binary-package';
+                    else if (filename.endsWith('.exe')) contentType = 'application/vnd.microsoft.portable-executable';
+                    else if (filename.endsWith('.zip')) contentType = 'application/zip';
+
+                    res.writeHead(200, {
+                      'Content-Type': contentType,
+                      'Content-Length': stat.size,
+                      'Content-Disposition': `attachment; filename="${filename}"`,
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0'
+                    });
+                    fs.createReadStream(filePath).pipe(res);
+                    return;
+                  }
+                }
               }
             }
             next();

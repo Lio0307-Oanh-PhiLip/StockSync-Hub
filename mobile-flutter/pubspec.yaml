@@ -1,6 +1,6 @@
 name: stocksync_flutter
 description: StockSync Hub - Kho Xac Linh Kien Mobile Scanner & Auto-Update
-version: 1.2.8+128
+version: 1.2.9+129
 publish_to: 'none'
 
 environment:
