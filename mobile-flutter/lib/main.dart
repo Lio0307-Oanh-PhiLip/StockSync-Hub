@@ -133,9 +133,11 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
   // WebSocket Sync State
   WebSocketChannel? _channel;
   // Shared App URL accessible from any mobile device without internal auth
-  String _serverUrl = "wss://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app/ws";
+  static const String defaultCloudWsUrl = "wss://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app/ws";
+  String _serverUrl = defaultCloudWsUrl;
   bool _isConnected = false;
   Timer? _reconnectTimer;
+  Timer? _periodicSyncTimer;
   bool _isReconnecting = false;
   bool _isLoadingData = false;
 
@@ -164,6 +166,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
     _loadInitialData();
     _loadSavedServerUrl();
     _startAutoReconnectTimer();
+    _startPeriodicSyncTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpgradeService.checkForUpdate(context, silent: true);
@@ -173,6 +176,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
   @override
   void dispose() {
     _reconnectTimer?.cancel();
+    _periodicSyncTimer?.cancel();
     _channel?.sink.close();
     _scannerController.dispose();
     super.dispose();
@@ -263,9 +267,10 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         final data = json.decode(content);
         if (data['serverUrl'] != null && data['serverUrl'].toString().isNotEmpty) {
           final saved = data['serverUrl'].toString();
-          // Auto fix legacy internal dev url to public shared url
-          if (saved.contains('ais-dev-')) {
-            _serverUrl = saved.replaceAll('ais-dev-', 'ais-pre-');
+          // Auto fix legacy internal dev url or dead applet URL to current public shared url
+          if (saved.contains('raxzxcsor7d6q2kcn7kvxc') || saved.contains('ais-dev-')) {
+            _serverUrl = defaultCloudWsUrl;
+            _saveServerUrl(defaultCloudWsUrl);
           } else {
             _serverUrl = saved;
           }
@@ -290,6 +295,20 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
     _reconnectTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (!_isConnected && !_isReconnecting) {
         _connectWebSocket();
+      }
+    });
+  }
+
+  void _startPeriodicSyncTimer() {
+    _periodicSyncTimer?.cancel();
+    // Đồng bộ tức thời định kỳ 4 giây 1 lần để PC và Điện thoại luôn cùng 1 trạng thái dữ liệu
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_isConnected && _channel != null) {
+        try {
+          _channel?.sink.add(json.encode({'type': 'REQUEST_FULL_STATE'}));
+        } catch (_) {}
+      } else {
+        _syncViaHttp();
       }
     });
   }
@@ -480,9 +499,30 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
           parsed.add(InventoryItem.fromJson(item));
         }
 
-        if (parsed.isNotEmpty) {
-          _populateItems(parsed);
-          _saveItemsToCache();
+        _populateItems(parsed);
+        _saveItemsToCache();
+
+        if (mounted && type == 'SYNC_FULL_STATE') {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.sync_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '⚡ ĐÃ ĐỒNG BỘ MỚI: Nhận ${parsed.length} dòng linh kiện từ PC!',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
       } else if (type == 'SCAN_PERFORMED') {
         final itemMap = payload['item'];
@@ -830,7 +870,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('StockSync Scanner v1.2.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('StockSync Scanner v1.2.9', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   Row(
                     children: [
                       Container(

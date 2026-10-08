@@ -50,8 +50,8 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [port, setPort] = useState<number>(3000);
   const [onlineWS, setOnlineWS] = useState<number>(0);
 
-  // URL ưu tiên cho thiết bị di động truy cập trực tiếp (Public Shared URL)
-  const defaultUrl = 'https://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app';
+  // URL ưu tiên cho thiết bị di động truy cập trực tiếp (dùng ais-pre để không cần đăng nhập Google)
+  const defaultUrl = 'https://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app';
   const [currentUrl, setCurrentUrl] = useState(defaultUrl);
   const [customCloudUrl, setCustomCloudUrl] = useState(defaultUrl);
 
@@ -59,7 +59,8 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
     if (typeof window !== 'undefined') {
       const loc = window.location.href;
       if (loc && !loc.includes('about:blank') && !loc.includes('srcdoc')) {
-        let clean = loc.split('?')[0].split('#')[0];
+        let clean = loc.split('?')[0].split('#')[0].replace(/\/+$/, '');
+        // Chuyển ais-dev sang ais-pre để điện thoại quét mã QR có thể truy cập ngay không bị chặn đăng nhập Google
         if (clean.includes('ais-dev-')) {
           clean = clean.replace('ais-dev-', 'ais-pre-');
         }
@@ -485,98 +486,120 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
           </div>
 
           {/* LỰA CHỌN: TẢI BỘ CÀI DESKTOP APP CHO MÁY TÍNH PC (WINDOWS & LINUX) */}
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-4 shadow-md border border-slate-700/80">
-            <div className="flex items-start justify-between gap-3 mb-2.5">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    PC Desktop App
-                  </span>
-                  <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
-                    <Monitor className="w-4 h-4 text-amber-400" />
-                    Cài Đặt App Cho Máy Tính PC (Windows &amp; Linux)
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  Bắt buộc khi sử dụng kết nối <b>Wi-Fi LAN nội bộ offline (không dùng Internet)</b>: Cài app lên PC để tự động chạy máy chủ kho &amp; cổng WebSocket cho điện thoại kết nối tức thì.
-                </p>
+          <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-1 rounded-md uppercase tracking-wider shadow-xs">
+                  PC DESKTOP APP
+                </span>
+                <span className="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-amber-400 shrink-0" />
+                  Cài Đặt App Cho Máy Tính PC (Windows &amp; Linux)
+                </span>
               </div>
             </div>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
+              Bắt buộc khi sử dụng kết nối <b>Wi-Fi LAN nội bộ offline (không dùng Internet)</b>: Cài app lên PC để tự động chạy máy chủ kho &amp; cổng WebSocket cho điện thoại kết nối tức thì.
+            </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3">
-              {/* Windows .exe */}
+            {/* 4 Download Options: 2 Columns for spacious alignment without text clipping */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              {/* 1. Windows .exe */}
               <a
-                href={releaseInfo?.windowsExeUrl || "/download/StockSync-Hub-v1.2.8-windows-x64.exe"}
+                href={releaseInfo?.windowsExeUrl || "/download/StockSync-Hub.exe"}
                 download="StockSync-Hub.exe"
-                className="flex items-center justify-between p-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-xl border border-blue-400/30 transition shadow-sm group cursor-pointer"
+                className="flex items-center gap-3 p-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-xl border border-blue-400/40 transition shadow-sm group cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Monitor className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-white">Bản Windows (.exe)</div>
-                    <div className="text-[10px] text-blue-200">
-                      {releaseInfo?.windowsExeSize ? formatFileSize(releaseInfo.windowsExeSize) : 'Win 10, 11'} • Chạy ngay
-                    </div>
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Monitor className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-sm text-white truncate">Windows (.exe)</div>
+                  <div className="text-xs text-blue-100 truncate">
+                    {releaseInfo?.windowsExeSize ? formatFileSize(releaseInfo.windowsExeSize) : 'Win 10, 11'} • Chạy độc lập
                   </div>
                 </div>
-                <Download className="w-4 h-4 text-blue-200 group-hover:text-white transition shrink-0" />
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0 group-hover:bg-white/25 transition">
+                  <Download className="w-4 h-4 text-white" />
+                </div>
               </a>
 
-              {/* Linux .AppImage */}
+              {/* 2. Windows .zip (Khuyên dùng) */}
               <a
-                href={releaseInfo?.linuxAppImageUrl || "/download/StockSync-Hub-v1.2.8-linux-x64.AppImage"}
+                href={releaseInfo?.windowsZipUrl || "/download/StockSync-Hub-windows-portable.zip"}
+                download="StockSync-Hub-windows-portable.zip"
+                className="flex items-center gap-3 p-3 bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white rounded-xl border border-indigo-400/40 transition shadow-sm group cursor-pointer ring-2 ring-amber-400/60"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-sm text-white truncate flex items-center gap-1.5">
+                    <span>Windows (.zip)</span>
+                    <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded">Khuyên Dùng</span>
+                  </div>
+                  <div className="text-xs text-indigo-100 truncate">
+                    Tự tạo Desktop Shortcut 1 chạm
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0 group-hover:bg-white/25 transition">
+                  <Download className="w-4 h-4 text-white" />
+                </div>
+              </a>
+
+              {/* 3. Linux AppImage */}
+              <a
+                href={releaseInfo?.linuxAppImageUrl || "/download/StockSync-Hub.AppImage"}
                 download="StockSync-Hub.AppImage"
-                className="flex items-center justify-between p-3 bg-emerald-700 hover:bg-emerald-600 active:scale-98 text-white rounded-xl border border-emerald-500/30 transition shadow-sm group cursor-pointer"
+                className="flex items-center gap-3 p-3 bg-emerald-700 hover:bg-emerald-600 active:scale-98 text-white rounded-xl border border-emerald-500/40 transition shadow-sm group cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Download className="w-4 h-4 text-amber-300" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-white">Linux AppImage</div>
-                    <div className="text-[10px] text-emerald-200">
-                      {releaseInfo?.linuxAppImageSize ? formatFileSize(releaseInfo.linuxAppImageSize) : 'Portable'} • Chạy 1 chạm
-                    </div>
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-amber-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-sm text-white truncate">Linux AppImage</div>
+                  <div className="text-xs text-emerald-100 truncate">
+                    {releaseInfo?.linuxAppImageSize ? formatFileSize(releaseInfo.linuxAppImageSize) : 'Portable'} • Chạy 1 chạm
                   </div>
                 </div>
-                <Download className="w-4 h-4 text-emerald-200 group-hover:text-white transition shrink-0" />
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0 group-hover:bg-white/25 transition">
+                  <Download className="w-4 h-4 text-white" />
+                </div>
               </a>
 
-              {/* Linux .deb */}
+              {/* 4. Linux .deb */}
               <a
-                href={releaseInfo?.linuxDebUrl || "/download/StockSync-Hub-v1.2.8-linux-amd64.deb"}
+                href={releaseInfo?.linuxDebUrl || "/download/StockSync-Hub.deb"}
                 download="StockSync-Hub.deb"
-                className="flex items-center justify-between p-3 bg-slate-700/80 hover:bg-slate-700 active:scale-98 text-white rounded-xl border border-slate-600 transition shadow-sm group cursor-pointer"
+                className="flex items-center gap-3 p-3 bg-slate-800 hover:bg-slate-700 active:scale-98 text-white rounded-xl border border-slate-600 transition shadow-sm group cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-white/10 rounded-lg">
-                    <Download className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-white">Bản Linux (.deb)</div>
-                    <div className="text-[10px] text-slate-300">
-                      {releaseInfo?.linuxDebSize ? formatFileSize(releaseInfo.linuxDebSize) : 'Ubuntu/Debian'}
-                    </div>
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                  <Download className="w-5 h-5 text-slate-200" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-extrabold text-sm text-white truncate">Linux (.deb)</div>
+                  <div className="text-xs text-slate-300 truncate">
+                    {releaseInfo?.linuxDebSize ? formatFileSize(releaseInfo.linuxDebSize) : 'Ubuntu/Debian'} • Gói hệ thống
                   </div>
                 </div>
-                <Download className="w-4 h-4 text-slate-400 group-hover:text-white transition shrink-0" />
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0 group-hover:bg-white/25 transition">
+                  <Download className="w-4 h-4 text-white" />
+                </div>
               </a>
             </div>
 
-            <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-white flex items-center gap-1.5">
-                <span>💡</span> Hướng dẫn chạy &amp; cài đặt không bị lỗi:
+            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl text-xs text-slate-300 space-y-1.5 leading-relaxed">
+              <p className="font-bold text-white flex items-center gap-1.5">
+                <span>💡</span> Hướng dẫn mở máy chủ PC &amp; vượt SmartScreen:
               </p>
               <p>
-                • <b>Windows (.exe)</b>: Tải về nhấp đúp là chạy ngay. Tự động tìm cổng trống (3000, 3001...) và mở trình duyệt, không bao giờ tự đóng.
+                • <b>Windows (.exe)</b>: Nếu Windows hiện màn hình xanh <i>"Windows protected your PC"</i>, hãy bấm vào chữ <b className="text-blue-300 underline">"More info" (Thông tin khác)</b> &gt; chọn <b className="text-emerald-300">"Run anyway" (Vẫn chạy)</b>.
               </p>
               <p>
-                • <b>Linux AppImage (Khuyên dùng nhất)</b>: Nhấp chuột phải vào file <code>.AppImage</code> &gt; chọn <b>Properties</b> &gt; tick <b>"Allow executing file as program"</b> &gt; nhấp đúp để mở chạy ngay 1 chạm (không cần cài đặt, không cần root).
+                • <b>Windows (.zip) (Khuyên dùng nhất)</b>: Tải file zip về, giải nén và nhấp đúp file <b>Cai-Dat-StockSync.bat</b> để hệ thống tự tạo icon <b>StockSync Hub</b> ngoài màn hình Desktop và khởi động máy chủ.
               </p>
               <p>
-                • <b>Linux (.deb)</b>: Nhấp chuột phải chọn <b>"Open With Software Install"</b> (hoặc chạy lệnh: <code>sudo dpkg -i StockSync-Hub-v1.2.8-linux-amd64.deb</code>). <i>Lưu ý: Không dùng Archive Manager để mở file .deb.</i>
+                • <b>Linux AppImage</b>: Nhấp chuột phải vào file <code>.AppImage</code> &gt; <b>Properties</b> &gt; tick <b>"Allow executing file as program"</b> &gt; nhấp đúp để mở chạy 1 chạm.
               </p>
             </div>
           </div>

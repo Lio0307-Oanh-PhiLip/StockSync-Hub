@@ -16,9 +16,13 @@ const APP_VERSION = '1.2.9';
 fs.mkdirSync(BUILD_DIR, { recursive: true });
 fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-// BƯỚC 1: Build Web Frontend
-console.log('\n[1/5] Biên dịch Web Frontend (Vite)...');
-execSync('npm run build', { stdio: 'inherit' });
+// BƯỚC 1: Build Web Frontend (Nếu chưa có dist)
+if (!fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
+  console.log('\n[1/5] Biên dịch Web Frontend (Vite)...');
+  execSync('npm run build', { stdio: 'inherit' });
+} else {
+  console.log('\n[1/5] Thư mục dist đã có sẵn, tiếp tục đóng gói desktop...');
+}
 
 // BƯỚC 2: Thu thập và nhúng toàn bộ tài nguyên Web vào bộ nhớ
 console.log('\n[2/5] Đóng gói tài nguyên giao diện vào bộ nhớ (Embedded VFS)...');
@@ -306,21 +310,25 @@ try {
     execSync(`curl -L -o "${cacheNodeExe}" https://nodejs.org/dist/v22.14.0/win-x64/node.exe`, { stdio: 'inherit' });
   }
 
+  // 5.1 Sử dụng file node.exe nguyên bản (đảm bảo PE header và COFF table chuẩn 100%, không bị lỗi chớp tắt trên Windows)
+  console.log('  ✔ Chuẩn bị file thực thi Windows nguyên bản...');
   const winExeOutputFile = path.join(DOWNLOAD_DIR, `StockSync-Hub-v${APP_VERSION}-windows-x64.exe`);
   fs.copyFileSync(cacheNodeExe, winExeOutputFile);
 
+  // 5.2 Inject SEA blob vào PE file
   console.log('  💉 Đang inject mã nguồn và VFS vào file Windows PE (.exe)...');
   execSync(`npx postject "${winExeOutputFile}" NODE_SEA_BLOB "${seaPrepBlob}" --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`, {
-    stdio: 'ignore'
+    stdio: 'inherit'
   });
+
   fs.copyFileSync(winExeOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub.exe'));
   fs.copyFileSync(winExeOutputFile, path.join(DOWNLOAD_DIR, 'StockSync-Hub-v1.2.8-windows-x64.exe'));
   console.log(`  ✔ Đã đóng gói thành công file Windows .exe: ${winExeOutputFile} (${(fs.statSync(winExeOutputFile).size / (1024*1024)).toFixed(2)} MB)`);
 
-  // Tạo file chạy nhanh Chay-StockSync.bat cạnh file .exe
+  // 5.3 Tạo file chạy nhanh Chay-StockSync.bat cạnh file .exe
   const batContent = `@echo off
 chcp 65001 >nul
-title StockSync Hub - Máy Chủ Kho & Đồng Bộ Điện Thoại (v1.2.8)
+title StockSync Hub - Máy Chủ Kho & Đồng Bộ Điện Thoại (v${APP_VERSION})
 cls
 echo ==============================================================
 echo       STOCKS YNC HUB - HỆ THỐNG QUẢN LÝ KHO XÁC LINH KIỆN      
@@ -336,11 +344,94 @@ echo.
 "%~dp0StockSync-Hub.exe"
 if %errorlevel% neq 0 (
   echo.
+  echo  ==============================================================
   echo  Co loi xay ra trong khi chay. Ma loi: %errorlevel%
+  echo  ==============================================================
   pause
 )
 `;
   fs.writeFileSync(path.join(DOWNLOAD_DIR, 'Chay-StockSync.bat'), batContent, 'utf-8');
+
+  // 5.4 Tạo file cài đặt tự động 1 chạm Cai-Dat-StockSync.bat
+  const installerBatContent = `@echo off
+chcp 65001 >nul
+title Cài Đặt StockSync Hub - Máy Tính PC (Windows 10 / 11)
+cls
+echo ==============================================================
+echo       STOCKS YNC HUB - TRÌNH CÀI ĐẶT TỰ ĐỘNG MÁY CHỦ PC        
+echo ==============================================================
+echo.
+echo  [1/3] Đang tạo thư mục cài đặt tại %%LOCALAPPDATA%\\StockSyncHub...
+set "TARGET_DIR=%LOCALAPPDATA%\\StockSyncHub"
+if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
+
+echo  [2/3] Đang sao chép các tệp thực thi vào hệ thống...
+copy /Y "%~dp0StockSync-Hub.exe" "%TARGET_DIR%\\StockSync-Hub.exe" >nul
+copy /Y "%~dp0Chay-StockSync.bat" "%TARGET_DIR%\\Chay-StockSync.bat" >nul 2>&1
+
+echo  [3/3] Đang tạo Shortcut biểu tượng trên màn hình Desktop...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([System.IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'StockSync Hub.lnk')); $s.TargetPath = '%TARGET_DIR%\\StockSync-Hub.exe'; $s.WorkingDirectory = '%TARGET_DIR%'; $s.Save()"
+
+echo.
+echo ==============================================================
+echo  ✔ CÀI ĐẶT THÀNH CÔNG!
+echo  ✔ Biểu tượng 'StockSync Hub' đã xuất hiện trên màn hình Desktop.
+echo ==============================================================
+echo.
+echo  Đang khởi động ứng dụng ngay bây giờ...
+start "" "%TARGET_DIR%\\StockSync-Hub.exe"
+timeout /t 3 >nul
+exit
+`;
+  fs.writeFileSync(path.join(DOWNLOAD_DIR, 'Cai-Dat-StockSync.bat'), installerBatContent, 'utf-8');
+
+  // 5.5 Tạo gói Windows Portable ZIP hoàn chỉnh
+  console.log('  📦 Đang đóng gói Windows Portable (.zip)...');
+  const portableFolder = path.join(BUILD_DIR, 'StockSync-Hub-Windows-Portable');
+  fs.rmSync(portableFolder, { recursive: true, force: true });
+  fs.mkdirSync(portableFolder, { recursive: true });
+
+  fs.copyFileSync(winExeOutputFile, path.join(portableFolder, 'StockSync-Hub.exe'));
+  fs.writeFileSync(path.join(portableFolder, 'Chay-StockSync.bat'), batContent, 'utf-8');
+  fs.writeFileSync(path.join(portableFolder, 'Cai-Dat-StockSync.bat'), installerBatContent, 'utf-8');
+
+  const guideText = `========================================================================
+     HƯỚNG DẪN SỬ DỤNG STOCKS YNC HUB DESKTOP (WINDOWS 10 / 11)
+========================================================================
+
+1. CÁCH KHỞI ĐỘNG:
+   - Cách 1 (Khuyên dùng): Nhấp đúp vào file "StockSync-Hub.exe".
+   - Cách 2: Nhấp đúp vào file "Chay-StockSync.bat".
+   - Ứng dụng sẽ tự động mở trình duyệt web tại: http://localhost:3000
+
+2. KẾT NỐI VỚI APP ĐIỆN THOẠI (APK) QUA MẠNG WI-FI:
+   - Đảm bảo máy tính PC và điện thoại cùng kết nối vào một mạng Wi-Fi LAN.
+   - Trên màn hình máy tính, mở mục "Kết Nối Mobile" -> Chọn tab "Wi-Fi LAN".
+   - Mở App StockSync trên điện thoại, quét mã QR trên màn hình PC.
+   - Khi quét mã linh kiện trên điện thoại, số lượng sẽ nhảy tức thì lên máy tính!
+
+3. THÔNG TIN BẢN QUYỀN:
+   - Phiên bản: v${APP_VERSION}
+   - OPPO Experience & Service Store Phú Lâm (VN001021)
+========================================================================
+`;
+  fs.writeFileSync(path.join(portableFolder, 'HUONG-DAN-SU-DUNG.txt'), guideText, 'utf-8');
+
+  // Nén ZIP bằng Python nhanh (ZIP_STORED để tránh nghẽn CPU khi nén file 80MB)
+  const zipOut1 = path.join(DOWNLOAD_DIR, `StockSync-Hub-v${APP_VERSION}-windows-portable.zip`);
+  const zipOut2 = path.join(DOWNLOAD_DIR, 'StockSync-Hub-windows-portable.zip');
+  execSync(`python3 -c "
+import zipfile, os
+def zipdir(path, ziph):
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            p = os.path.join(root, file)
+            ziph.write(p, os.path.relpath(p, path))
+with zipfile.ZipFile('${zipOut1}', 'w', zipfile.ZIP_STORED) as zipf:
+    zipdir('${portableFolder}', zipf)
+"`);
+  fs.copyFileSync(zipOut1, zipOut2);
+  console.log(`  ✔ Đã đóng gói thành công file Windows .zip: ${zipOut1} (${(fs.statSync(zipOut1).size / (1024*1024)).toFixed(2)} MB)`);
 
 } catch (err) {
   console.error('  ❌ Lỗi khi tạo file Windows:', err);

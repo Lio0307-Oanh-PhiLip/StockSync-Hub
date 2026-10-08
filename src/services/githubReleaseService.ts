@@ -37,7 +37,7 @@ export interface ReleaseInfo {
 }
 
 export const GITHUB_REPO = 'Lio0307-Oanh-PhiLip/StockSync-Hub';
-export const CURRENT_APP_VERSION = '1.2.8'; // Phiên bản đang chạy trong web app
+export const CURRENT_APP_VERSION = '1.2.9'; // Phiên bản đang chạy trong web app
 
 let cachedRelease: ReleaseInfo | null = null;
 let lastFetchTime = 0;

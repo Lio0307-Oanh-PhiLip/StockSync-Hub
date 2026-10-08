@@ -30,15 +30,36 @@ export const UpdateChecker: React.FC = () => {
       const data = await fetchLatestRelease(force);
       setRelease(data);
       if (data && data.isNewer) {
-        setShowBanner(true);
-      } else if (force) {
-        setLastCheckMessage('Bạn đang sử dụng phiên bản mới nhất!');
-        setTimeout(() => setLastCheckMessage(null), 3000);
+        const isDismissed = localStorage.getItem(`stocksync_dismissed_${data.tag_name}`);
+        if (!isDismissed || force) {
+          setShowBanner(true);
+        } else {
+          setShowBanner(false);
+        }
+      } else {
+        // Đang là phiên bản mới nhất: Không hiển thị bất kỳ thông báo nào khi khởi động lại
+        setShowBanner(false);
+        if (force) {
+          setLastCheckMessage('Hệ thống đang chạy phiên bản mới nhất!');
+          setTimeout(() => setLastCheckMessage(null), 3000);
+        }
       }
     } catch (_) {
     } finally {
       setIsChecking(false);
     }
+  };
+
+  const handleDismiss = () => {
+    if (release?.tag_name) {
+      localStorage.setItem(`stocksync_dismissed_${release.tag_name}`, 'true');
+    }
+    setShowBanner(false);
+  };
+
+  const handleOpenUpdate = () => {
+    setShowBanner(false);
+    setShowDetailModal(true);
   };
 
   return (
@@ -53,71 +74,51 @@ export const UpdateChecker: React.FC = () => {
                   <Sparkles className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                       Cập Nhật Mới
                     </span>
-                    <h3 className="font-bold text-sm text-white">
+                    <h3 className="font-black text-base sm:text-lg text-white">
                       Đã có bản {release.tag_name} trên GitHub!
                     </h3>
                   </div>
-                  <p className="text-xs text-blue-200 mt-1 leading-relaxed">
+                  <p className="text-sm text-blue-100 mt-1 leading-relaxed">
                     Phiên bản hiện tại: <b>v{CURRENT_APP_VERSION}</b> → Bản mới nhất: <b>{release.tag_name}</b>. Đã cập nhật bộ cài Windows, Linux &amp; Android APK hoàn chỉnh.
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={() => setShowBanner(false)}
-                className="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
-                title="Đóng thông báo"
+                onClick={handleDismiss}
+                className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition"
+                title="Bỏ qua thông báo này"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Các nút tải nhanh trực tiếp từ GitHub CDN */}
-            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-white/10">
-              {/* Android APK */}
-              {release.apkUrl ? (
-                <a
-                  href={release.apkUrl}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition"
+            {/* Lựa chọn Cập nhật ngay hoặc Bỏ qua */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-3.5 pt-3.5 border-t border-white/15">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  onClick={handleOpenUpdate}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-black text-sm rounded-xl shadow-md transition cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>APK Android {formatFileSize(release.apkSize)}</span>
-                </a>
-              ) : null}
+                  <Sparkles className="w-4 h-4" />
+                  <span>Cập Nhật Ngay</span>
+                </button>
 
-              {/* Windows .exe */}
-              {release.windowsExeUrl ? (
-                <a
-                  href={release.windowsExeUrl}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                <button
+                  onClick={handleDismiss}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 active:scale-98 text-white text-sm font-bold rounded-xl border border-white/25 transition cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Windows .exe {formatFileSize(release.windowsExeSize)}</span>
-                </a>
-              ) : null}
+                  <span>Bỏ Qua</span>
+                </button>
+              </div>
 
-              {/* Linux AppImage */}
-              {release.linuxAppImageUrl ? (
-                <a
-                  href={release.linuxAppImageUrl}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Linux AppImage {formatFileSize(release.linuxAppImageSize)}</span>
-                </a>
-              ) : null}
-
-              {/* Xem chi tiết */}
-              <button
-                onClick={() => setShowDetailModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition ml-auto"
-              >
-                <span>Xem Chi Tiết &amp; Tất Cả File</span>
-              </button>
+              <div className="flex items-center gap-1.5 text-xs text-blue-200/90 ml-auto">
+                <span>(Bấm "Bỏ qua" để hệ thống không nhắc lại khi khởi động)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -279,12 +280,23 @@ export const UpdateChecker: React.FC = () => {
                 <ExternalLink className="w-3 h-3" />
               </a>
 
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition"
-              >
-                Đóng
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleDismiss();
+                    setShowDetailModal(false);
+                  }}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-700 transition cursor-pointer"
+                >
+                  Bỏ qua bản này
+                </button>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>

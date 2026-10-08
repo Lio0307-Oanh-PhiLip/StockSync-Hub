@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title StockSync Hub - Máy Chủ Kho & Đồng Bộ Điện Thoại (v1.2.8)
+title StockSync Hub - Máy Chủ Kho & Đồng Bộ Điện Thoại (v1.2.9)
 cls
 echo ==============================================================
 echo       STOCKS YNC HUB - HỆ THỐNG QUẢN LÝ KHO XÁC LINH KIỆN      
@@ -16,6 +16,8 @@ echo.
 "%~dp0StockSync-Hub.exe"
 if %errorlevel% neq 0 (
   echo.
+  echo  ==============================================================
   echo  Co loi xay ra trong khi chay. Ma loi: %errorlevel%
+  echo  ==============================================================
   pause
 )

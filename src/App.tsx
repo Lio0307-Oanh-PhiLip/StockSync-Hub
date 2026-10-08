@@ -580,8 +580,8 @@ export default function App() {
     }
 
     broadcastDataSync({ iw: sample.iw, oow: sample.oow, sourceInfo: newSource });
-    pushResetDefaultToServer();
-    showAlert("Đã làm mới dữ liệu thống kê F5 chuẩn 366 dòng trên toàn bộ hệ thống!", 'success');
+    pushFullStateToServer(sample.iw, sample.oow, newSource, 'clean_replace');
+    showAlert("Đã làm mới dữ liệu thống kê F5 chuẩn 366 dòng trên toàn bộ hệ thống & đồng bộ ngay tới điện thoại!", 'success');
   };
 
   // Export TTBH

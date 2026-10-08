@@ -187,22 +187,22 @@ export const ActiveScanCard: React.FC<ActiveScanCardProps> = ({
 
               {/* Product Name & Part Number */}
               <div>
-                <h3 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug">
+                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug">
                   {activeScan.item.productName}
                 </h3>
-                <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-blue-200">
-                  <span>Mã LK: <strong className="font-mono text-white text-sm bg-white/15 px-2 py-0.5 rounded font-black">{activeScan.item.maLK}</strong></span>
-                  <span className="text-white/30">•</span>
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap text-sm text-blue-200">
+                  <span>Mã LK: <strong className="font-mono text-white text-base bg-white/20 px-2.5 py-0.5 rounded-lg font-black">{activeScan.item.maLK}</strong></span>
+                  <span className="text-white/40">•</span>
                   <span>Model: <strong className="text-white font-bold">{activeScan.item.model}</strong></span>
-                  <span className="text-white/30">•</span>
-                  <span>Số RO vừa quét: <strong className="font-mono text-blue-100 font-bold bg-white/10 px-1.5 py-0.5 rounded">{activeScan.item.soRO}</strong></span>
+                  <span className="text-white/40">•</span>
+                  <span>Số RO vừa quét: <strong className="font-mono text-blue-100 font-bold bg-white/15 px-2 py-0.5 rounded-md">{activeScan.item.soRO}</strong></span>
                 </div>
               </div>
 
               {/* Composite Barcode / Cột SP */}
-              <div className="pt-1">
-                <span className="text-[11px] text-blue-300 font-medium">Cột SP: </span>
-                <span className="font-mono text-xs font-bold text-amber-300 bg-black/40 px-2 py-1 rounded border border-amber-300/30 select-all">
+              <div className="pt-1.5">
+                <span className="text-xs text-blue-300 font-bold">Cột SP: </span>
+                <span className="font-mono text-sm sm:text-base font-black text-amber-300 bg-black/50 px-2.5 py-1 rounded-md border border-amber-300/40 select-all tracking-wider">
                   {activeScan.item.cotSP}
                 </span>
               </div>

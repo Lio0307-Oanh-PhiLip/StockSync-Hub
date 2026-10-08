@@ -1,3 +1,13 @@
+// BẢO VỆ TIẾN TRÌNH TOÀN CỤC: Bắt ngoại lệ ngay khi vừa nạp module
+process.on('uncaughtException', (err) => {
+  console.error('\n[StockSync Desktop Warning] Uncaught exception:', err?.message || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.warn('\n[StockSync Desktop Warning] Unhandled rejection:', reason);
+});
+// Giữ Event Loop hoạt động liên tục (1 giây 1 lần) để không bao giờ tự đóng
+setInterval(() => {}, 1000);
+
 import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -534,6 +544,47 @@ async function startDesktopApp() {
 
   app.get('/api/sync/state', (req, res) => res.json(serverState));
 
+  // Proxy endpoint to fetch remote Google Sheets / CSV without CORS issues
+  app.get('/api/proxy-sheet', async (req: Request, res: Response) => {
+    const rawUrl = req.query.url as string;
+    if (!rawUrl) {
+      return res.status(400).json({ error: 'Thiếu tham số url' });
+    }
+
+    try {
+      let targetUrl = rawUrl.trim();
+      const sheetMatch = targetUrl.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (sheetMatch && sheetMatch[1]) {
+        const sheetId = sheetMatch[1];
+        const gidMatch = targetUrl.match(/[#&?]gid=([0-9]+)/);
+        const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
+        targetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`;
+      }
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/plain, */*'
+        }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          error: `Máy chủ từ xa trả về mã lỗi HTTP ${response.status}: ${response.statusText}`
+        });
+      }
+
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      const arrayBuf = await response.arrayBuffer();
+      res.send(Buffer.from(arrayBuf));
+    } catch (err: any) {
+      res.status(500).json({
+        error: `Không thể kết nối đến URL: ${err?.message || 'Lỗi mạng hoặc liên kết không hợp lệ'}`
+      });
+    }
+  });
+
   app.get('/api/sync/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -710,13 +761,14 @@ process.on('unhandledRejection', (reason) => {
 // Giữ Event Loop luôn hoạt động để app không bao giờ tự động tắt
 setInterval(() => {}, 1000 * 60 * 60);
 
-// Giữ cửa sổ terminal mở nếu chạy trực tiếp
-if (process.stdin && process.stdin.isTTY) {
-  try {
+// Giữ cửa sổ terminal luôn mở trên mọi môi trường
+try {
+  if (process.stdin) {
     process.stdin.resume();
-  } catch (_) {}
-}
+  }
+} catch (_) {}
 
 startDesktopApp().catch(err => {
   console.error('[Fatal Error]', err);
+  // Không bao giờ gọi process.exit, giữ tiến trình hoạt động
 });

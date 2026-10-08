@@ -247,26 +247,58 @@ export const fetchRemoteSheetData = async (
     throw new Error('Đường dẫn liên kết không hợp lệ!');
   }
 
-  let response: Response;
+  let arrayBuffer: ArrayBuffer | null = null;
+  let lastErrorMessage = '';
+
+  // 1. Thử qua backend proxy nội bộ (/api/proxy-sheet) để vượt qua 100% giới hạn CORS của trình duyệt
   try {
-    response = await fetch(formattedUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/plain, */*'
-      }
-    });
+    const proxyRes = await fetch(`/api/proxy-sheet?url=${encodeURIComponent(rawUrl)}`);
+    if (proxyRes.ok) {
+      arrayBuffer = await proxyRes.arrayBuffer();
+    } else {
+      const errJson = await proxyRes.json().catch(() => null);
+      if (errJson?.error) lastErrorMessage = errJson.error;
+    }
   } catch (err: any) {
-    // If CORS fails directly on Google Sheets, try a public proxy if needed
+    lastErrorMessage = err?.message || '';
+  }
+
+  // 2. Nếu proxy không có sẵn (hoặc môi trường thuần client), thử tải trực tiếp
+  if (!arrayBuffer) {
+    try {
+      const directRes = await fetch(formattedUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/plain, */*'
+        }
+      });
+      if (directRes.ok) {
+        arrayBuffer = await directRes.arrayBuffer();
+      } else {
+        lastErrorMessage = `Mã lỗi HTTP ${directRes.status}: ${directRes.statusText}`;
+      }
+    } catch (err: any) {
+      lastErrorMessage = err?.message || lastErrorMessage;
+    }
+  }
+
+  // 3. Fallback qua dịch vụ CORS Proxy công cộng
+  if (!arrayBuffer) {
+    try {
+      const corsProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(formattedUrl)}`;
+      const corsRes = await fetch(corsProxyUrl);
+      if (corsRes.ok) {
+        arrayBuffer = await corsRes.arrayBuffer();
+      }
+    } catch (_) {}
+  }
+
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
     throw new Error(
-      `Không thể tải dữ liệu từ URL: ${err.message || 'Lỗi mạng hoặc giới hạn quyền truy cập CORS'}. Hãy đảm bảo Google Sheets đã được bật "Bất kỳ ai có liên kết đều có thể xem" (Anyone with the link).`
+      `Không thể tải dữ liệu từ liên kết: ${lastErrorMessage || 'Lỗi mạng hoặc Google Sheets chưa mở quyền xem công khai'}. Hãy đảm bảo Google Sheets đã được bật "Bất kỳ ai có liên kết đều có thể xem" (Anyone with the link).`
     );
   }
 
-  if (!response.ok) {
-    throw new Error(`Máy chủ từ chối yêu cầu (Mã lỗi HTTP ${response.status}: ${response.statusText})`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
   const newIW: InventoryItem[] = [];

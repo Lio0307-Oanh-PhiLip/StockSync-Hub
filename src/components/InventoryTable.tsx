@@ -344,10 +344,10 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
       ) : (
         /* Standard 12-Column Table matching Figure 1 */
         <div className="overflow-x-auto min-h-[420px] max-h-[600px] border-b border-slate-200">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="sticky top-0 bg-slate-100 z-10 text-slate-800 font-semibold border-b border-slate-300 shadow-2xs">
+          <table className="w-full text-left border-collapse text-sm sm:text-base">
+            <thead className="sticky top-0 bg-slate-200/95 z-10 text-slate-950 font-black text-sm uppercase tracking-wider border-b-2 border-slate-400 shadow-xs backdrop-blur-xs">
               <tr>
-                <th className="p-2.5 w-10 text-center border-r border-slate-200">
+                <th className="p-3 w-10 text-center border-r border-slate-300">
                   <input
                     type="checkbox"
                     checked={selectedIds.length === paginatedData.length && paginatedData.length > 0}

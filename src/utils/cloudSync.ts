@@ -11,7 +11,7 @@ export interface RealtimeSyncHandlers {
 }
 
 const STORAGE_SERVER_URL_KEY = 'stocksync_cloud_server_url';
-export const DEFAULT_PRODUCTION_URL = 'https://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app';
+export const DEFAULT_PRODUCTION_URL = 'https://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app';
 
 /**
  * Get active Server Base URL.

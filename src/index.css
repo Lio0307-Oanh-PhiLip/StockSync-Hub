@@ -1,1 +1,69 @@
 @import "tailwindcss";
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tăng toàn bộ cỡ chữ giao diện lên 2 size (+2 cỡ font: từ 15-16px lên 18px) */
+html {
+  font-size: 18px;
+}
+
+body {
+  font-size: 1.05rem; /* ~18.9px */
+  line-height: 1.6;
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+/* Các ô tiêu đề bảng (table header th) to hơn, chữ đậm nét, tương phản cao, dễ nhìn từ xa */
+table th {
+  font-size: 0.95rem !important; /* ~17px thay vì 11-12px */
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  letter-spacing: 0.02em;
+}
+
+table td {
+  font-size: 0.95rem !important; /* ~17px */
+}
+
+/* Tiêu đề các cấp (Headings) to hơn 2 cỡ, sắc nét, nổi bật */
+h1 {
+  font-size: 1.6rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.4rem !important;
+  font-weight: 800 !important;
+}
+
+h3 {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+}
+
+h4 {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+}
+
+/* Nâng kích cỡ các nhãn nhỏ (text-xs, text-[11px], text-[10px]) để không còn bị li ti khó nhìn */
+.text-xs {
+  font-size: 0.85rem !important; /* ~15.3px thay vì 12px */
+}
+
+.text-\[11px\], .text-\[10px\] {
+  font-size: 0.8rem !important; /* ~14.4px thay vì 10-11px */
+}
+
+/* Cải thiện ô nhập liệu và nút bấm to rõ */
+input, select, textarea, button {
+  font-size: 0.95rem;
+}
+

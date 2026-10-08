@@ -3,7 +3,7 @@ Version: 1.2.9
 Section: utils
 Priority: optional
 Architecture: amd64
-Installed-Size: 132549
+Installed-Size: 131753
 Maintainer: StockSync Logistics <philiptrinh30@gmail.com>
 Homepage: https://github.com/Lio0307-Oanh-PhiLip/StockSync-Hub
 Description: StockSync Hub - Ung dung kiem tra xac linh kien va may chu dong bo ma vach PC

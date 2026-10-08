@@ -38,32 +38,32 @@ export const Header: React.FC<HeaderProps> = ({
             <Package className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                 StockSync Hub
               </h1>
-              <span className="bg-blue-100 text-blue-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-md border border-blue-200">
+              <span className="bg-blue-100 text-blue-900 text-xs sm:text-sm font-black px-3 py-1 rounded-lg border border-blue-300 shadow-2xs">
                 Kiểm Tra Xác Linh Kiện (IW / OOW)
               </span>
             </div>
             
-            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
-              <span className="flex items-center gap-1 font-medium">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm text-slate-600 mt-1.5 flex-wrap font-medium">
+              <span className="flex items-center gap-1 font-bold text-slate-700">
+                <Building2 className="w-4 h-4 text-slate-500" />
                 Mã Trạm:
               </span>
               <input
                 type="text"
                 value={scCode}
                 onChange={(e) => onScCodeChange(e.target.value)}
-                className="font-mono font-bold text-blue-700 bg-slate-100 px-2 py-0.5 rounded text-xs w-24 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="font-mono font-black text-blue-800 bg-slate-100 px-2.5 py-1 rounded-md text-xs sm:text-sm w-28 border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Nhấp để sửa mã trạm SC"
               />
-              <span className="text-slate-300">|</span>
-              <span className="text-slate-500 font-medium">Kho xác CSKH & Bảo hành</span>
-              <span className="text-slate-300">|</span>
-              <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              <span className="text-slate-300 font-bold">|</span>
+              <span className="text-slate-600 font-semibold">Kho xác CSKH & Bảo hành</span>
+              <span className="text-slate-300 font-bold">|</span>
+              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                 Tự lưu dữ liệu (Local Auto-Sync)
               </span>
             </div>
