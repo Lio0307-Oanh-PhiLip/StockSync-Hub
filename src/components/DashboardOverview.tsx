@@ -28,6 +28,9 @@ interface DashboardOverviewProps {
   isSavingDrive?: boolean;
   syncSourceInfo?: SyncSourceInfo;
   onOpenSyncModal?: () => void;
+  onOpenDriveModal?: () => void;
+  driveUrl?: string;
+  lastDriveSavedAt?: string | null;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -44,7 +47,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onSaveDrive,
   isSavingDrive,
   syncSourceInfo,
-  onOpenSyncModal
+  onOpenSyncModal,
+  onOpenDriveModal,
+  driveUrl = '',
+  lastDriveSavedAt = null
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -297,10 +303,31 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <CloudUpload className="w-4.5 h-4.5" />
             <span>{isSavingDrive ? 'ĐANG ĐẨY DỮ LIỆU LÊN DRIVE...' : 'LƯU VÀ ĐẨY ĐỐI CHIẾU LÊN DRIVE'}</span>
           </button>
+
+          {/* Drive Link & Config trigger */}
+          <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
+            <button
+              type="button"
+              onClick={onOpenDriveModal}
+              className="text-emerald-800 hover:text-emerald-950 font-extrabold flex items-center gap-1 hover:underline cursor-pointer"
+              title="Nhấp để thêm hoặc xem link Google Drive chứa dữ liệu"
+            >
+              <span>⚙ Cấu Hình Link Drive</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-black ${driveUrl ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-900 border border-amber-300'}`}>
+                {driveUrl ? '✓ Đã Thêm' : 'Chưa Nhập'}
+              </span>
+            </button>
+
+            {lastDriveSavedAt && (
+              <span className="text-[11px] text-slate-500 font-medium italic">
+                Đã lưu: {lastDriveSavedAt}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Footer Notes */}
-        <div className="mt-3 pt-2 text-[10px] text-slate-400 space-y-0.5 leading-tight italic">
+        <div className="mt-2.5 pt-2 text-[10px] text-slate-400 space-y-0.5 leading-tight italic">
           <p>*tự động lưu mỗi 10 phút, điều kiện phải luôn mở tab, không chuyển tab</p>
           <p>**lưu ý khi chuyển tab phải ấn lưu, phòng trường hợp chưa lưu, phải scan lại</p>
         </div>

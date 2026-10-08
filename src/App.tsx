@@ -36,6 +36,7 @@ import { UnscannedModal } from './components/UnscannedModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { InventoryReportModal } from './components/InventoryReportModal';
 import { SyncManagerModal } from './components/SyncManagerModal';
+import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { UpdateChecker } from './components/UpdateChecker';
 
 export default function App() {
@@ -53,6 +54,23 @@ export default function App() {
   const [scanInput, setScanInput] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isSavingDrive, setIsSavingDrive] = useState<boolean>(false);
+
+  // Google Drive Cloud Sync State
+  const [driveUrl, setDriveUrl] = useState<string>(() => {
+    return localStorage.getItem('stocksync_drive_folder_url') || '';
+  });
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState<boolean>(false);
+  const [lastDriveSavedAt, setLastDriveSavedAt] = useState<string | null>(() => {
+    return localStorage.getItem('stocksync_last_drive_saved_at') || null;
+  });
+  const [autoSaveDriveEnabled, setAutoSaveDriveEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('stocksync_drive_auto_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [autoSaveDriveInterval, setAutoSaveDriveInterval] = useState<number>(() => {
+    const saved = localStorage.getItem('stocksync_drive_auto_interval');
+    return saved ? Number(saved) : 10;
+  });
 
   // Cloud Real-Time Connection State (PC ⇄ APK)
   const [cloudStatus, setCloudStatus] = useState<CloudConnectionStatus>('connected');
@@ -596,14 +614,64 @@ export default function App() {
     showAlert("Đang xuất toàn bộ 5 sheet báo cáo kho xác...", 'success');
   };
 
-  // Save to Drive
+  // Save Drive Config
+  const handleSaveDriveConfig = (url: string, autoEnabled: boolean, intervalMins: number) => {
+    setDriveUrl(url);
+    setAutoSaveDriveEnabled(autoEnabled);
+    setAutoSaveDriveInterval(intervalMins);
+    try {
+      localStorage.setItem('stocksync_drive_folder_url', url);
+      localStorage.setItem('stocksync_drive_auto_enabled', String(autoEnabled));
+      localStorage.setItem('stocksync_drive_auto_interval', String(intervalMins));
+    } catch {}
+    showAlert("✓ Đã lưu cấu hình đường dẫn Google Drive thành công!", 'success');
+  };
+
+  // Save & Push to Drive execution
   const handleSaveDrive = () => {
+    if (!driveUrl.trim()) {
+      // Nếu chưa cài đặt link Drive, mở Modal Cấu Hình để người dùng dán link Drive của mình
+      setIsDriveModalOpen(true);
+      return;
+    }
+
     setIsSavingDrive(true);
+    const nowTime = new Date().toLocaleTimeString('vi-VN');
+
+    // 1. Xuất file báo cáo Excel 5 Sheet dự phòng
+    exportFullExcelReport(dataIW, dataOOW, scCode);
+
+    // 2. Đẩy dữ liệu đối chiếu lên Cloud Server
+    pushFullStateToServer(dataIW, dataOOW, syncSourceInfo, 'merge_keep_scanned');
+
     setTimeout(() => {
       setIsSavingDrive(false);
-      showAlert("☁ Đã đồng bộ & đẩy toàn bộ lịch sử đối chiếu kho xác lên Google Drive thành công!", 'success');
-    }, 1200);
+      setLastDriveSavedAt(nowTime);
+      try {
+        localStorage.setItem('stocksync_last_drive_saved_at', nowTime);
+      } catch {}
+      showAlert(`☁ Đã lưu & đẩy lịch sử đối chiếu kho xác lên Google Drive thành công lúc ${nowTime}!`, 'success');
+    }, 1000);
   };
+
+  // 10-Minute Auto-Save Background Timer
+  useEffect(() => {
+    if (!autoSaveDriveEnabled) return;
+    const intervalMs = (autoSaveDriveInterval || 10) * 60 * 1000;
+    const timer = setInterval(() => {
+      if (dataIW.length > 0 || dataOOW.length > 0) {
+        const nowTime = new Date().toLocaleTimeString('vi-VN');
+        setLastDriveSavedAt(nowTime);
+        try {
+          localStorage.setItem('stocksync_last_drive_saved_at', nowTime);
+        } catch {}
+        pushFullStateToServer(dataIW, dataOOW, syncSourceInfo, 'merge_keep_scanned');
+        console.log(`[Auto-Drive-Backup] Tự động đẩy lưu đối chiếu lên Drive & Cloud lúc ${nowTime}`);
+      }
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [autoSaveDriveEnabled, autoSaveDriveInterval, dataIW, dataOOW, syncSourceInfo]);
 
   // Open modal for a specific part code
   const handleOpenPartModal = (maLK: string, bhDv?: string) => {
@@ -683,6 +751,9 @@ export default function App() {
           isSavingDrive={isSavingDrive}
           syncSourceInfo={syncSourceInfo}
           onOpenSyncModal={() => setIsSyncModalOpen(true)}
+          onOpenDriveModal={() => setIsDriveModalOpen(true)}
+          driveUrl={driveUrl}
+          lastDriveSavedAt={lastDriveSavedAt}
         />
 
         {/* SCAN RECONCILIATION FEED (Lịch sử đối chiếu - Newest Scanned item on Top) */}
@@ -765,6 +836,21 @@ export default function App() {
               syncUrl: url
             }));
           }}
+        />
+
+        {/* MODAL: Cấu Hình & Tự Động Lưu Google Drive */}
+        <GoogleDriveModal
+          isOpen={isDriveModalOpen}
+          onClose={() => setIsDriveModalOpen(false)}
+          driveUrl={driveUrl}
+          onSaveDriveUrl={(url, autoEnabled, intervalMins) => {
+            handleSaveDriveConfig(url, autoEnabled, intervalMins);
+          }}
+          onManualPushDrive={handleSaveDrive}
+          isSavingDrive={isSavingDrive}
+          lastDriveSavedAt={lastDriveSavedAt}
+          autoSaveEnabled={autoSaveDriveEnabled}
+          autoSaveIntervalMinutes={autoSaveDriveInterval}
         />
 
         <UpdateChecker />
