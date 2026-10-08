@@ -41,12 +41,12 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [remoteTag, setRemoteTag] = useState<string>('v1.3.0');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
-  // Connection mode: 'web' (open in mobile browser - recommended & works immediately), 'wifi' (local LAN for local PC), 'cloud' (remote cloud / tunnel)
-  const [connectMode, setConnectMode] = useState<'web' | 'wifi' | 'cloud'>('web');
+  // Connection mode: 'apk' (App APK connected to Cloud / virtual server - DEFAULT), 'web' (open in mobile browser), 'wifi' (local LAN offline)
+  const [connectMode, setConnectMode] = useState<'apk' | 'web' | 'wifi'>('apk');
   
   // Network detection state
   const [detectedIps, setDetectedIps] = useState<string[]>([]);
-  const [selectedIp, setSelectedIp] = useState<string>('192.168.1.100');
+  const [selectedIp, setSelectedIp] = useState<string>('192.168.1.15');
   const [port, setPort] = useState<number>(3000);
   const [onlineWS, setOnlineWS] = useState<number>(0);
 
@@ -69,7 +69,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
 
         // If user is accessing via an IP in browser, use that IP!
         const hostname = window.location.hostname;
-        if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('run.app')) {
+        if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('run.app') && !hostname.startsWith('169.254.')) {
           setSelectedIp(hostname);
         }
       }
@@ -93,14 +93,13 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
         const data = await res.json();
         if (data.port) setPort(data.port);
         if (Array.isArray(data.localIps) && data.localIps.length > 0) {
-          // Filter to prefer 192.168.x.x or 10.x.x.x or first available
+          // Filter to prefer 192.168.x.x or 10.x.x.x or first available, ignore 169.254.x.x APIPA
           const validIps = data.localIps.filter((ip: string) => !ip.startsWith('127.') && !ip.startsWith('169.254.'));
           if (validIps.length > 0) {
             setDetectedIps(validIps);
             setSelectedIp(validIps[0]);
           } else {
-            setDetectedIps(data.localIps);
-            if (data.localIps[0]) setSelectedIp(data.localIps[0]);
+            setDetectedIps(data.localIps.filter((ip: string) => !ip.startsWith('169.254.')));
           }
         }
       }
@@ -153,26 +152,21 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
 
   // Compute the exact QR value based on active connectMode
   const getQrValue = (): string => {
-    if (connectMode === 'wifi') {
-      const cleanIp = selectedIp.trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
-      const hostPort = cleanIp.includes(':') ? cleanIp : `${cleanIp}:${port}`;
-      return `ws://${hostPort}/ws`;
+    if (connectMode === 'apk') {
+      let clean = (currentUrl || defaultUrl).trim();
+      if (clean.startsWith('http://')) clean = clean.replace('http://', 'ws://');
+      if (clean.startsWith('https://')) clean = clean.replace('https://', 'wss://');
+      if (!clean.startsWith('ws://') && !clean.startsWith('wss://')) clean = `wss://${clean}`;
+      if (!clean.endsWith('/ws')) clean = clean.endsWith('/') ? `${clean}ws` : `${clean}/ws`;
+      return clean;
     }
     if (connectMode === 'web') {
-      if (currentUrl.includes('run.app') || currentUrl.startsWith('https://')) {
-        return currentUrl;
-      }
-      const cleanIp = selectedIp.trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
-      const hostPort = cleanIp.includes(':') ? cleanIp : `${cleanIp}:${port}`;
-      return `http://${hostPort}`;
+      return currentUrl || defaultUrl;
     }
-    // Cloud / Tunnel mode
-    let clean = customCloudUrl.trim();
-    if (clean.startsWith('http://')) clean = clean.replace('http://', 'ws://');
-    if (clean.startsWith('https://')) clean = clean.replace('https://', 'wss://');
-    if (!clean.startsWith('ws://') && !clean.startsWith('wss://')) clean = `wss://${clean}`;
-    if (!clean.endsWith('/ws')) clean = clean.endsWith('/') ? `${clean}ws` : `${clean}/ws`;
-    return clean;
+    // LAN Wi-Fi mode
+    const cleanIp = selectedIp.trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
+    const hostPort = cleanIp.includes(':') ? cleanIp : `${cleanIp}:${port}`;
+    return `ws://${hostPort}/ws`;
   };
 
   const currentQrValue = getQrValue();
@@ -192,7 +186,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 Kết Nối & Cài Đặt App Cho Điện Thoại
               </h2>
               <p className="text-xs text-slate-300">
-                Đồng bộ 2 chiều dữ liệu kho xác linh kiện giữa PC và điện thoại di động
+                Đồng bộ 2 chiều dữ liệu kho xác linh kiện giữa PC Hub và điện thoại di động
               </p>
             </div>
           </div>
@@ -232,6 +226,18 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-3.5 text-xs font-bold">
               <button
                 type="button"
+                onClick={() => setConnectMode('apk')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
+                  connectMode === 'apk' 
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 bg-white/50'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>1. App APK (Máy Chủ Ảo)</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setConnectMode('web')}
                 className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
                   connectMode === 'web' 
@@ -240,7 +246,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>1. Web Scanner (Dùng Ngay)</span>
+                <span>2. Web Trình Duyệt</span>
               </button>
               <button
                 type="button"
@@ -252,19 +258,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                 }`}
               >
                 <Wifi className="w-3.5 h-3.5" />
-                <span>2. Wi-Fi LAN (App APK)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setConnectMode('cloud')}
-                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
-                  connectMode === 'cloud' 
-                    ? 'bg-blue-600 text-white shadow-xs' 
-                    : 'text-slate-600 hover:text-slate-900 bg-white/50'
-                }`}
-              >
-                <Cloud className="w-3.5 h-3.5" />
-                <span>3. Cloud / Ngrok</span>
+                <span>3. Wi-Fi LAN Offline</span>
               </button>
             </div>
 
@@ -279,25 +273,64 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                   fgColor="#0f172a"
                 />
                 <span className="block text-[11px] text-blue-700 font-bold mt-1.5">
-                  {connectMode === 'web' ? 'Quét mở Web Scanner ngay' : 'Quét bằng App StockSync'}
+                  {connectMode === 'apk' 
+                    ? 'Quét bằng App StockSync' 
+                    : connectMode === 'web' 
+                    ? 'Quét mở Web Scanner ngay' 
+                    : 'Quét bằng App StockSync'}
                 </span>
               </div>
 
               <div className="flex-1 space-y-2.5 w-full text-xs">
-                {connectMode === 'web' && (
+                {connectMode === 'apk' && (
                   <>
                     <div className="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-1">
                       <p className="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
-                        <span>⭐</span> Hoạt động ngay 100% không cần cấu hình IP:
+                        <span>⚡</span> Kết nối App APK với Máy Chủ Ảo Cloud (Khuyên dùng):
                       </p>
                       <p className="text-slate-700 leading-relaxed text-[11px]">
-                        1. Dùng <b>Camera thường của bất kỳ điện thoại nào</b> (iPhone hoặc Android) hướng vào mã QR bên cạnh.
+                        1. Mở App <b>StockSync (APK)</b> trên điện thoại Android của bạn.
                       </p>
                       <p className="text-slate-700 leading-relaxed text-[11px]">
-                        2. Nhấp vào đường link để mở ứng dụng trực tiếp trên <b>Chrome / Safari</b>.
+                        2. Hướng camera vào mã QR bên cạnh. App sẽ <b>tự nhận diện địa chỉ máy chủ ảo</b> và kết nối WebSocket tức thì!
                       </p>
                       <p className="text-slate-700 leading-relaxed text-[11px]">
-                        3. Nhấn nút <b>Camera</b> trên điện thoại để quét mã vạch. Kết quả quét sẽ <b>nhảy ngay lập tức lên màn hình PC này theo thời gian thực</b>!
+                        3. <b>Đồng bộ 2 chiều:</b> Bắn súng mã vạch trên PC thì điện thoại tự nhảy số đếm; Quét trên điện thoại thì màn hình PC tự nhảy dòng đối chiếu!
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-slate-500">Địa chỉ WebSocket Máy Chủ Ảo:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input 
+                          type="text" 
+                          readOnly 
+                          value={currentQrValue} 
+                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-700 px-2.5 py-1.5 rounded-lg outline-none select-all truncate"
+                        />
+                        <button 
+                          onClick={() => handleCopy(currentQrValue)}
+                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
+                        >
+                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {connectMode === 'web' && (
+                  <>
+                    <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1">
+                      <p className="font-bold text-emerald-900 flex items-center gap-1.5 text-xs">
+                        <span>⭐</span> Hoạt động ngay trên trình duyệt (iPhone &amp; Android):
+                      </p>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        1. Dùng <b>Camera thường của bất kỳ điện thoại nào</b> hướng vào mã QR bên cạnh.
+                      </p>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        2. Mở trực tiếp trên trình duyệt <b>Chrome hoặc Safari</b> để quét mã mà không cần cài APK.
                       </p>
                     </div>
 
@@ -326,13 +359,10 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                   <>
                     <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-amber-950">
                       <p className="font-bold flex items-center gap-1 text-amber-900 text-[11px]">
-                        <span>⚠️</span> Hướng dẫn kết nối App APK qua mạng LAN (Wi-Fi):
+                        <span>🏠</span> Kết nối qua Wi-Fi nội bộ (Chỉ dùng khi PC mất mạng):
                       </p>
                       <p className="text-[11px] leading-relaxed text-slate-700">
-                        Bạn đang xem bản web Cloud. Để App APK tìm thấy PC trong mạng Wi-Fi, máy tính PC của bạn cần chạy máy chủ cục bộ và <b>phải nhập chính xác địa chỉ IPv4 máy tính PC</b> của bạn:
-                      </p>
-                      <p className="text-[11px] font-semibold text-blue-800">
-                        👉 Bấm Win+R gõ <code>cmd</code> rồi gõ lệnh <code>ipconfig</code> để xem IPv4 (ví dụ 192.168.1.15).
+                        Chỉ cần thiết khi bạn cài bản Desktop App trên PC chạy offline không có Internet. Điện thoại và PC phải cùng bắt 1 mạng Wi-Fi:
                       </p>
                     </div>
                     
@@ -363,33 +393,6 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                       <p className="text-[10px] text-slate-500 italic">
                         * Sau khi sửa IP, mã QR bên cạnh sẽ tự cập nhật. Mở app APK quét lại mã để kết nối.
                       </p>
-                    </div>
-                  </>
-                )}
-
-                {connectMode === 'cloud' && (
-                  <>
-                    <p className="text-slate-600 leading-relaxed">
-                      ☁️ <b>Kết nối qua Internet / Cloud:</b> Nhập địa chỉ Cloud Run, ngrok hoặc Cloudflare tunnel của bạn để kết nối từ xa ngoài mạng Wi-Fi.
-                    </p>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-slate-500">Địa chỉ WebSocket Cloud:</span>
-                      <div className="flex items-center gap-1.5">
-                        <input 
-                          type="text" 
-                          value={customCloudUrl}
-                          onChange={(e) => setCustomCloudUrl(e.target.value)}
-                          placeholder="wss://... hoặc https://..."
-                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-800 px-2.5 py-1.5 rounded-lg outline-none focus:border-blue-500 focus:bg-white transition"
-                        />
-                        <button 
-                          onClick={() => handleCopy(currentQrValue)}
-                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
-                        >
-                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
-                        </button>
-                      </div>
                     </div>
                   </>
                 )}

@@ -65,7 +65,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (file("stocksync-release.keystore").exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
