@@ -263,16 +263,20 @@ export default function App() {
 
   // Initial fetch from cloud server on boot & Real-time bidirectional SSE sync (PC ⇄ Android APK)
   useEffect(() => {
-    // 1. Fetch latest server state on startup so APK gets whatever PC updated
+    // 1. Fetch latest server state on startup with version check
     fetchServerState().then(serverState => {
       if (serverState && Array.isArray(serverState.iw) && Array.isArray(serverState.oow) && (serverState.iw.length > 0 || serverState.oow.length > 0)) {
-        setDataIW(serverState.iw);
-        setDataOOW(serverState.oow);
-        if (serverState.sourceInfo) setSyncSourceInfo(serverState.sourceInfo);
-        const scanned = [...serverState.oow, ...serverState.iw]
-          .filter(it => it.daQuet > 0)
-          .sort((a, b) => (b.lastScannedAt || '').localeCompare(a.lastScannedAt || ''));
-        setScannedFeed(scanned);
+        const localVersion = syncSourceInfo.version || 0;
+        // Only update if server has newer version or local is uninitialized
+        if (serverState.version >= localVersion || (dataIW.length === 0 && dataOOW.length === 0)) {
+          setDataIW(serverState.iw);
+          setDataOOW(serverState.oow);
+          if (serverState.sourceInfo) setSyncSourceInfo(serverState.sourceInfo);
+          const scanned = [...serverState.oow, ...serverState.iw]
+            .filter(it => it.daQuet > 0)
+            .sort((a, b) => (b.lastScannedAt || '').localeCompare(a.lastScannedAt || ''));
+          setScannedFeed(scanned);
+        }
       }
     }).catch(e => {
       console.warn('Initial server state fetch:', e);
@@ -290,7 +294,7 @@ export default function App() {
         setScannedFeed(scanned);
         soundManager.playSuccess();
         showAlert(
-          `⚡ ĐÃ TỰ ĐỘNG ĐỒNG BỘ: Danh sách mới vừa được cập nhật từ Server [${data.sourceInfo?.name || 'Hệ thống'}] (${data.iw.length + data.oow.length} dòng)!`,
+          `⚡ ĐÃ ĐỒNG BỘ 2 CHIỀU: Dữ liệu kho vừa được cập nhật từ Server [${data.sourceInfo?.name || 'Hệ thống'}] (${data.iw.length + data.oow.length} dòng)!`,
           'info'
         );
       },
@@ -300,7 +304,30 @@ export default function App() {
         setDataIW(prev => updater(prev));
         setDataOOW(prev => updater(prev));
         setScannedFeed(prev => [item, ...prev.filter(it => it.id !== item.id)]);
+
+        // Cập nhật ngay thẻ đối chiếu trên đầu màn hình PC theo lượt quét của điện thoại
+        setTimeout(() => {
+          setDataIW(curIW => {
+            setDataOOW(curOOW => {
+              const all = [...curIW, ...curOOW];
+              const sameMaLK = all.filter(it => it.maLK === item.maLK && it.bhDv === item.bhDv);
+              setActiveScanTarget({
+                item,
+                totalForThisMaLK: {
+                  required: sameMaLK.reduce((a, b) => a + b.slg, 0),
+                  scanned: sameMaLK.reduce((a, b) => a + b.daQuet, 0),
+                  completedROs: sameMaLK.filter(it => it.daQuet >= it.slg).map(it => it.soRO),
+                  pendingROs: sameMaLK.filter(it => it.daQuet < it.slg).map(it => it.soRO)
+                }
+              });
+              return curOOW;
+            });
+            return curIW;
+          });
+        }, 30);
+
         soundManager.playSuccess();
+        showAlert(`📱 ĐIỆN THOẠI VỪA QUÉT KHỚP: [${item.cotSP || item.soRO}] (${item.productName}) Lúc ${item.lastScannedAt || 'vừa xong'}`, 'success');
       },
       onScanRemoved: ({ itemId, item }) => {
         // Real-time notification when PC deletes a scanned line
@@ -844,6 +871,8 @@ export default function App() {
           scCode={scCode}
           cloudStatus={cloudStatus}
           onlineClients={onlineClients}
+          dataIW={dataIW}
+          dataOOW={dataOOW}
           onTestPing={() => {
             fetchServerState().then(() => {
               showAlert("✓ Đã kết nối & đồng bộ dữ liệu với Cloud Server thành công!", "success");

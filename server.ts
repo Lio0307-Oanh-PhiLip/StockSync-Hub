@@ -420,6 +420,26 @@ async function startServer() {
               }));
             } catch (_) {}
           }
+        } else if (data.type === 'CHECK_VERSION') {
+          const clientVer = Number(data.version) || 0;
+          if (clientVer >= serverState.version) {
+            try {
+              ws.send(JSON.stringify({
+                type: 'VERSION_OK',
+                version: serverState.version,
+                timestamp: Date.now()
+              }));
+            } catch (_) {}
+          } else {
+            try {
+              ws.send(JSON.stringify({
+                type: 'SYNC_FULL_STATE',
+                payload: serverState,
+                version: serverState.version,
+                timestamp: Date.now()
+              }));
+            } catch (_) {}
+          }
         } else if (data.type === 'REQUEST_FULL_STATE' || data.type === 'REQUEST_STATE') {
           try {
             ws.send(JSON.stringify({
@@ -640,11 +660,71 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.post('/api/sync/reset-default', (req, res) => {
-    serverState = generateInitialState();
+  app.post('/api/sync/reset-standard', (req, res) => {
+    const initialState = generateInitialState();
+    initialState.version = Math.max(serverState.version + 1, 130);
+    initialState.sourceInfo.version = initialState.version;
+    initialState.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
+    serverState = initialState;
     saveStateToDisk(serverState);
     broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
-    res.json({ success: true });
+    res.json({ success: true, version: serverState.version });
+  });
+
+  app.post('/api/sync/reset-default', (req, res) => {
+    const initialState = generateInitialState();
+    initialState.version = Math.max(serverState.version + 1, 130);
+    initialState.sourceInfo.version = initialState.version;
+    initialState.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
+    serverState = initialState;
+    saveStateToDisk(serverState);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    res.json({ success: true, version: serverState.version });
+  });
+
+  app.post('/api/sync/push-from-pc', (req, res) => {
+    const { iw, oow, sourceInfo } = req.body;
+    if (!Array.isArray(iw) || !Array.isArray(oow)) {
+      return res.status(400).json({ error: 'Danh sách linh kiện không hợp lệ' });
+    }
+
+    serverState.version = Math.max(serverState.version + 1, (sourceInfo?.version || 0) + 1, 130);
+    serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
+    serverState.sourceInfo = {
+      ...(sourceInfo || serverState.sourceInfo),
+      lastSyncedAt: serverState.lastModified,
+      rowCount: iw.length + oow.length,
+      iwCount: iw.length,
+      oowCount: oow.length,
+      version: serverState.version
+    };
+    serverState.iw = iw;
+    serverState.oow = oow;
+
+    saveStateToDisk(serverState);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    res.json({ success: true, version: serverState.version, rowCount: iw.length + oow.length });
+  });
+
+  app.post('/api/sync/reset-empty', (req, res) => {
+    serverState = {
+      version: serverState.version + 1,
+      lastModified: new Date().toLocaleTimeString('vi-VN'),
+      sourceInfo: {
+        name: 'Trạng thái trống (Đã xóa)',
+        sourceType: 'sample_data',
+        lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+        rowCount: 0,
+        iwCount: 0,
+        oowCount: 0,
+        version: serverState.version + 1
+      },
+      iw: [],
+      oow: []
+    };
+    saveStateToDisk(serverState);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    res.json({ success: true, message: 'Server state cleared' });
   });
 
   // Serve VITE app

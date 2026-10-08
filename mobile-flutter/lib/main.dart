@@ -133,9 +133,10 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
   // WebSocket Sync State
   WebSocketChannel? _channel;
   // Shared App URL accessible from any mobile device without internal auth
-  static const String defaultCloudWsUrl = "wss://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app/ws";
+  static const String defaultCloudWsUrl = "wss://ais-pre-3huvqp5aas56f4sanhbps6-98361429439.asia-southeast1.run.app/ws";
   String _serverUrl = defaultCloudWsUrl;
   bool _isConnected = false;
+  int _serverVersion = 0;
   Timer? _reconnectTimer;
   Timer? _periodicSyncTimer;
   bool _isReconnecting = false;
@@ -264,7 +265,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         if (data['serverUrl'] != null && data['serverUrl'].toString().isNotEmpty) {
           final saved = data['serverUrl'].toString();
           // Auto fix legacy internal dev url, obsolete applet URLs, or broken cloud URLs to current active public shared url
-          if (!saved.contains('192.168.') && !saved.contains('10.0.2.') && !saved.contains('localhost') && !saved.contains('cu7gkxvrv4htowkh5nhxq4')) {
+          if (!saved.contains('192.168.') && !saved.contains('10.0.2.') && !saved.contains('localhost') && !saved.contains('3huvqp5aas56f4sanhbps6')) {
             _serverUrl = defaultCloudWsUrl;
             _saveServerUrl(defaultCloudWsUrl);
           } else {
@@ -297,14 +298,16 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
 
   void _startPeriodicSyncTimer() {
     _periodicSyncTimer?.cancel();
-    // Đồng bộ tức thời định kỳ 4 giây 1 lần để PC và Điện thoại luôn cùng 1 trạng thái dữ liệu
-    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    // Kiểm tra heartbeat và phiên bản mỗi 6 giây, không tải đè toàn bộ dữ liệu làm mất lượt quét
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
       if (_isConnected && _channel != null) {
         try {
-          _channel?.sink.add(json.encode({'type': 'REQUEST_FULL_STATE'}));
+          _channel?.sink.add(json.encode({
+            'type': 'CHECK_VERSION',
+            'version': _serverVersion,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          }));
         } catch (_) {}
-      } else {
-        _syncViaHttp();
       }
     });
   }
@@ -486,39 +489,48 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         return;
       }
 
+      if (type == 'VERSION_OK') {
+        // Local state is already newest and in sync
+        return;
+      }
+
       if (type == 'INIT_STATE' || type == 'SYNC_FULL_STATE') {
-        final List oowRaw = payload['oow'] ?? [];
-        final List iwRaw = payload['iw'] ?? [];
+        final int incomingVer = (data['version'] as num?)?.toInt() ?? 0;
+        final List oowRaw = payload != null ? (payload['oow'] ?? []) : [];
+        final List iwRaw = payload != null ? (payload['iw'] ?? []) : [];
         final List<InventoryItem> parsed = [];
 
         for (var item in [...oowRaw, ...iwRaw]) {
           parsed.add(InventoryItem.fromJson(item));
         }
 
-        _populateItems(parsed);
-        _saveItemsToCache();
+        if (parsed.isNotEmpty) {
+          _serverVersion = incomingVer > 0 ? incomingVer : _serverVersion + 1;
+          _populateItems(parsed);
+          _saveItemsToCache();
 
-        if (mounted && type == 'SYNC_FULL_STATE') {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.sync_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '⚡ ĐÃ ĐỒNG BỘ MỚI: Nhận ${parsed.length} dòng linh kiện từ PC!',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          if (mounted && type == 'SYNC_FULL_STATE') {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.sync_rounded, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '⚡ ĐÃ ĐỒNG BỘ 2 CHIỀU: ${parsed.length} dòng linh kiện từ PC Hub (v1.3.0)!',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                backgroundColor: const Color(0xFF10B981),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
               ),
-              backgroundColor: const Color(0xFF10B981),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+            );
+          }
         }
       } else if (type == 'SCAN_PERFORMED') {
         final itemMap = payload['item'];
@@ -866,7 +878,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('StockSync Scanner v1.2.9', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('StockSync Scanner v1.3.0', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   Row(
                     children: [
                       Container(

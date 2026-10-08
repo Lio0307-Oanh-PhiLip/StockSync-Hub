@@ -38,7 +38,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
   const [isRefreshingRelease, setIsRefreshingRelease] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [remoteTag, setRemoteTag] = useState<string>('v1.2.9');
+  const [remoteTag, setRemoteTag] = useState<string>('v1.3.0');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
   // Connection mode: 'web' (open in mobile browser - recommended & works immediately), 'wifi' (local LAN for local PC), 'cloud' (remote cloud / tunnel)
@@ -51,7 +51,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [onlineWS, setOnlineWS] = useState<number>(0);
 
   // URL ưu tiên cho thiết bị di động truy cập trực tiếp (dùng ais-pre để không cần đăng nhập Google)
-  const defaultUrl = 'https://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app';
+  const defaultUrl = 'https://ais-pre-3huvqp5aas56f4sanhbps6-98361429439.asia-southeast1.run.app';
   const [currentUrl, setCurrentUrl] = useState(defaultUrl);
   const [customCloudUrl, setCustomCloudUrl] = useState(defaultUrl);
 

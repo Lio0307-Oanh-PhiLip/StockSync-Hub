@@ -1,135 +1,56 @@
-name: Flutter Android APK Build & Release
+name: Build and Release Android APK
 
 on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  build-and-release:
-    name: Build APK & Publish GitHub Release
+  build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-flutter
 
     steps:
-      - name: 1. Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: 2. Set up Java JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: 3. Set up Flutter SDK
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.0'
+          flutter-version: '3.24.0'
           channel: 'stable'
-          cache: true
 
-      - name: 4. Ensure Release Keystore Exists
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi=false
+
+      - name: Prepare Release Artifacts
         run: |
-          mkdir -p mobile-flutter/android/app
-          # Remove any old keystore to ensure clean generation
-          rm -f mobile-flutter/android/app/stocksync-release.keystore
-          
-          keytool -genkeypair -v \
-            -keystore mobile-flutter/android/app/stocksync-release.keystore \
-            -alias stocksync_enterprise \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass stocksync123 \
-            -keypass stocksync123 \
-            -dname "CN=StockSync Enterprise, OU=Warehouse Logistics, O=StockSync Hub, L=Ho Chi Minh, ST=SG, C=VN"
-          
-          ls -la mobile-flutter/android/app/stocksync-release.keystore
+          mkdir -p ../dist-apk
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync.apk
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync-v1.3.0.apk
 
-      - name: 5. Check Flutter Environment & Doctor
-        run: flutter doctor -v
-
-      - name: 6. Install Dependencies
-        working-directory: ./mobile-flutter
-        run: |
-          flutter clean
-          flutter pub get
-
-      - name: 7. Build Android Release APK
-        working-directory: ./mobile-flutter
-        run: |
-          flutter build apk --release --no-tree-shake-icons --build-name=1.2.9 --build-number=129
-
-      - name: 8. Build Desktop Apps (Windows .exe, Linux .deb & AppImage)
-        run: |
-          npm install --no-audit --no-fund
-          node scripts/build-desktop.cjs
-
-      - name: 9. Prepare Release Output Files
-        run: |
-          mkdir -p release-output
-          # Universal release APK
-          if [ -f "mobile-flutter/build/app/outputs/flutter-apk/app-release.apk" ]; then
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync.apk
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.2.9.apk
-          fi
-          # Desktop Windows & Linux installers
-          if [ -d "public/download" ]; then
-            cp public/download/*.exe release-output/ 2>/dev/null || true
-            cp public/download/*.deb release-output/ 2>/dev/null || true
-            cp public/download/*.AppImage release-output/ 2>/dev/null || true
-            cp public/download/*.bat release-output/ 2>/dev/null || true
-            cp public/download/*.sh release-output/ 2>/dev/null || true
-            cp public/download/*.zip release-output/ 2>/dev/null || true
-          fi
-          ls -la release-output/
-
-      - name: 10. Upload Artifact to GitHub Action Run
-        uses: actions/upload-artifact@v4
-        with:
-          name: StockSync-Release-Packages-v1.2.9
-          path: release-output/*
-          retention-days: 14
-
-      - name: 11. Create Unified GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.9' }}
-          name: StockSync Hub & Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.9' }}
-          body: |
-            ## 📱 StockSync Hub & Scanner - Official Release v1.2.9
-            
-            Ứng dụng Quản lý & Quét mã vạch Kho xác linh kiện đa nền tảng (Android APK, Windows EXE, Linux AppImage & DEB).
-            
-            ### ✨ Tính năng & Cải tiến v1.2.9:
-            - **ĐẦY ĐỦ BỘ CÀI PC DESKTOP (WINDOWS & LINUX)**:
-              - **🪟 Windows (.exe)**: Bản Portable chạy ngay, tự động đổi cổng nếu cổng 3000 bị bận, lưu trữ an toàn `%APPDATA%`, không bao giờ tự đóng.
-              - **🐧 Linux AppImage (.AppImage)**: Chạy 1 chạm không cần cài đặt, không cần root, không lỗi Archive Manager.
-              - **🐧 Linux DEB (.deb)**: Gói cài đặt chuẩn Debian/Ubuntu/Mint có đầy đủ `Installed-Size` và `md5sums`.
-            - **ĐỒNG BỘ TRỰC TIẾP TỪ GITHUB RELEASE CDN**:
-              - Giao diện Web App tự động liên kết trực tiếp với máy chủ GitHub CDN tốc độ cao.
-              - Tự động thông báo khi có bản cập nhật mới trên GitHub.
-            - **TÍCH HỢP SẴN 312 LINH KIỆN KHO XÁC**: 
-              - Cơ sở dữ liệu kho OPPO (Phú Lâm VN001021) đóng gói trực tiếp vào APK.
-            - **ĐỒNG BỘ 2 CHIỀU REALTIME (WEBSOCKET + HTTP FALLBACK)**:
-              - Quét trên điện thoại cập nhật tức thời lên máy tính và ngược lại.
-            
-            ### 📥 Hướng dẫn tải & cài đặt:
-            - **Android**: Tải `StockSync.apk` hoặc `StockSync-v1.2.9.apk`.
-            - **Windows**: Tải `StockSync-Hub-v1.2.9-windows-x64.exe` (hoặc `StockSync-Hub.exe`).
-            - **Linux**: Tải `StockSync-Hub-v1.2.9-linux-x64.AppImage` (cấp quyền Execute và nhấp đúp để mở).
-          draft: false
-          prerelease: false
-          files: release-output/*
+          name: "StockSync Hub v1.3.0 Live Sync"
+          tag_name: ${{ github.ref_name || 'v1.3.0' }}
+          generate_release_notes: true
+          files: |
+            dist-apk/StockSync.apk
+            dist-apk/StockSync-v1.3.0.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

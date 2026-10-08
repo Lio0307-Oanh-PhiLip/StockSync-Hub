@@ -44,6 +44,8 @@ interface SyncManagerModalProps {
   cloudStatus?: CloudConnectionStatus;
   onlineClients?: number;
   onTestPing?: () => void;
+  dataIW?: InventoryItem[];
+  dataOOW?: InventoryItem[];
 }
 
 export const SyncManagerModal: React.FC<SyncManagerModalProps> = ({
@@ -56,12 +58,16 @@ export const SyncManagerModal: React.FC<SyncManagerModalProps> = ({
   onAutoSyncToggle,
   cloudStatus = 'connected',
   onlineClients = 1,
-  onTestPing
+  onTestPing,
+  dataIW,
+  dataOOW
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<'realtime_apk' | 'excel' | 'google_sheet' | 'preset'>('realtime_apk');
   const [syncMode, setSyncMode] = useState<SyncMode>('merge_keep_scanned');
+  const [isPushingPC, setIsPushingPC] = useState<boolean>(false);
+  const [pushSuccessMsg, setPushSuccessMsg] = useState<string | null>(null);
   
   // Realtime Cloud Endpoint State
   const [serverUrl, setServerUrl] = useState<string>(getCloudServerUrl());
@@ -508,6 +514,90 @@ export const SyncManagerModal: React.FC<SyncManagerModalProps> = ({
                     <p className="text-[11px] text-slate-500">
                       💡 Mặc định app APK Android đóng gói sẵn đã trỏ tự động về Server Cloud này. Bạn chỉ cần mở app là cả PC và điện thoại sẽ tự động đồng bộ thời gian thực.
                     </p>
+                  </div>
+                </div>
+
+                {/* 3 NÚT ĐIỀU KHIỂN ĐỒNG BỘ CẤP CAO v1.3.0 */}
+                <div className="p-3.5 bg-slate-100/90 border border-slate-200 rounded-2xl space-y-2">
+                  <span className="text-xs font-bold text-slate-800 block">
+                    ⚡ Thao Tác Đồng Bộ Nhanh (v1.3.0 Live Sync):
+                  </span>
+                  
+                  {pushSuccessMsg && (
+                    <div className="p-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-300">
+                      {pushSuccessMsg}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* 1. Push PC -> Server */}
+                    <button
+                      type="button"
+                      disabled={isPushingPC || !dataIW || !dataOOW}
+                      onClick={async () => {
+                        if (!dataIW || !dataOOW) return;
+                        setIsPushingPC(true);
+                        try {
+                          const res = await fetch(`${serverUrl}/api/sync/push-from-pc`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ iw: dataIW, oow: dataOOW, sourceInfo })
+                          });
+                          if (res.ok) {
+                            setPushSuccessMsg('✓ Đã đẩy dữ liệu PC lên Server! Điện thoại sẽ tự nhận ngay lập tức.');
+                            setTimeout(() => setPushSuccessMsg(null), 4000);
+                          }
+                        } catch (e: any) {
+                          alert('Lỗi: ' + e?.message);
+                        } finally {
+                          setIsPushingPC(false);
+                        }
+                      }}
+                      className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{isPushingPC ? 'Đang đẩy...' : 'Đẩy Dữ Liệu PC Lên Server'}</span>
+                    </button>
+
+                    {/* 2. Reset standard v1.3.0 */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Khôi phục danh sách kho xác về chuẩn ban đầu v1.3.0 (366 linh kiện Phú Lâm)?')) return;
+                        try {
+                          const res = await fetch(`${serverUrl}/api/sync/reset-standard`, { method: 'POST' });
+                          if (res.ok) {
+                            window.location.reload();
+                          }
+                        } catch (e: any) {
+                          alert('Lỗi: ' + e?.message);
+                        }
+                      }}
+                      className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Về Kho Chuẩn v1.3.0</span>
+                    </button>
+
+                    {/* 3. Clear scans */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Đặt lại tất cả các linh kiện về trạng thái Chưa Scan (0%)?')) return;
+                        try {
+                          const res = await fetch(`${serverUrl}/api/sync/clear-scans`, { method: 'POST' });
+                          if (res.ok) {
+                            window.location.reload();
+                          }
+                        } catch (e: any) {
+                          alert('Lỗi: ' + e?.message);
+                        }
+                      }}
+                      className="p-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Bắt Đầu Ca Quét Mới (0%)</span>
+                    </button>
                   </div>
                 </div>
               </div>

@@ -11,7 +11,7 @@ export interface RealtimeSyncHandlers {
 }
 
 const STORAGE_SERVER_URL_KEY = 'stocksync_cloud_server_url';
-export const DEFAULT_PRODUCTION_URL = 'https://ais-pre-cu7gkxvrv4htowkh5nhxq4-670519460440.asia-southeast1.run.app';
+export const DEFAULT_PRODUCTION_URL = 'https://ais-pre-3huvqp5aas56f4sanhbps6-98361429439.asia-southeast1.run.app';
 
 /**
  * Get active Server Base URL.
@@ -21,7 +21,7 @@ export const DEFAULT_PRODUCTION_URL = 'https://ais-pre-cu7gkxvrv4htowkh5nhxq4-67
 export const getCloudServerUrl = (): string => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem(STORAGE_SERVER_URL_KEY);
-    if (custom && custom.trim().length > 0) {
+    if (custom && custom.trim().length > 0 && !custom.includes('cu7gkxvrv4htowkh5nhxq4')) {
       return custom.trim().replace(/\/+$/, '');
     }
 
@@ -29,7 +29,7 @@ export const getCloudServerUrl = (): string => {
     if (
       window.location.hostname === 'stocksync.local' ||
       window.location.protocol.startsWith('file') ||
-      window.location.hostname === 'localhost' && window.location.port !== '3000'
+      (window.location.hostname === 'localhost' && window.location.port !== '3000')
     ) {
       return DEFAULT_PRODUCTION_URL;
     }
@@ -173,12 +173,31 @@ export const pushClearScansToServer = async (clientId: string = 'client'): Promi
 };
 
 /**
+ * Reset server state to standard reference 366 items (v1.3.0)
+ */
+export const pushResetStandardToServer = async (): Promise<boolean> => {
+  const baseUrl = getCloudServerUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/sync/reset-standard`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[CloudSync] pushResetStandardToServer error:', err);
+    return false;
+  }
+};
+
+/**
  * Reset server state to default 366 items
  */
 export const pushResetDefaultToServer = async (): Promise<boolean> => {
   const baseUrl = getCloudServerUrl();
   try {
-    const res = await fetch(`${baseUrl}/api/sync/reset-default`, {
+    const res = await fetch(`${baseUrl}/api/sync/reset-standard`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

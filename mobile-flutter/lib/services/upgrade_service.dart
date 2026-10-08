@@ -16,7 +16,7 @@ class UpgradeService {
   static Future<void> checkForUpdate(BuildContext context, {bool silent = false}) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.2.9";
+      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.3.0";
 
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
