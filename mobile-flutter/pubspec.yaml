@@ -1,6 +1,6 @@
 name: stocksync_flutter
 description: StockSync Hub - Kho Xac Linh Kien Mobile Scanner & Auto-Update
-version: 1.2.7+127
+version: 1.2.8+128
 publish_to: 'none'
 
 environment:
@@ -25,3 +25,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/data/inventory_store.json

@@ -62,57 +62,76 @@ jobs:
       - name: 6. Install Dependencies
         working-directory: ./mobile-flutter
         run: |
-          flutter pub get
           flutter clean
+          flutter pub get
 
       - name: 7. Build Android Release APK
         working-directory: ./mobile-flutter
         run: |
-          flutter build apk --release --no-tree-shake-icons --build-name=1.2.7 --build-number=127
+          flutter build apk --release --no-tree-shake-icons --build-name=1.2.8 --build-number=128
 
-      - name: 8. Prepare APK Output Files
+      - name: 8. Build Desktop Windows Bundle
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          mkdir -p build-win
+          cp -r dist package.json server.ts inventory_store.json build-win/
+          cd build-win && zip -r ../stocksync-windows-x64.zip * && cd ..
+
+      - name: 9. Prepare Release Output Files
         run: |
           mkdir -p release-output
-          # Copy universal APK from Flutter build directory
+          # Universal release APK
           if [ -f "mobile-flutter/build/app/outputs/flutter-apk/app-release.apk" ]; then
             cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync.apk
-            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.2.7.apk
-          elif [ -f "public/StockSync.apk" ]; then
-            cp public/StockSync.apk release-output/StockSync.apk
-            cp public/StockSync.apk release-output/StockSync-v1.2.7.apk
+            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk release-output/StockSync-v1.2.8.apk
+          fi
+          # Desktop Windows zip
+          if [ -f "stocksync-windows-x64.zip" ]; then
+            cp stocksync-windows-x64.zip release-output/
           fi
           ls -la release-output/
 
-      - name: 9. Upload Artifact to GitHub Action Run
+      - name: 10. Upload Artifact to GitHub Action Run
         uses: actions/upload-artifact@v4
         with:
-          name: StockSync-Android-APK
-          path: release-output/*.apk
+          name: StockSync-Release-Packages-v1.2.8
+          path: release-output/*
           retention-days: 14
 
-      - name: 10. Create GitHub Release with APK
+      - name: 11. Create Unified GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.7' }}
-          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.7' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.8' }}
+          name: StockSync Scanner ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.8' }}
           body: |
-            ## 📱 StockSync Scanner APK - Official Release v1.2.7
+            ## 📱 StockSync Hub & Scanner - Official Release v1.2.8
             
-            Ứng dụng Quét mã vạch / QR Kho linh kiện xác & đồng bộ Real-time.
+            Ứng dụng Quản lý & Quét mã vạch Kho xác linh kiện (Tích hợp sẵn 312 linh kiện & Đồng bộ 2 chiều Realtime).
             
-            ### ✨ Tính năng & Cải tiến v1.2.7:
-            - **KHẮC PHỤC TRIỆT ĐỂ LỖI CÀI ĐẶT & PARSE ERROR**: Chuẩn hóa chữ ký số V1/V2, hoàn thiện tài nguyên biểu tượng (Adaptive & Legacy Launcher Icons).
-            - **Định danh Package Mới Chuẩn Hóa**: `com.stocksync.hub.scanner` - Tránh 100% xung đột chữ ký với các phiên bản cũ trước đó.
-            - **Đồng bộ Real-time**: Kết nối WebSocket thông suốt với PC.
+            ### ✨ Tính năng & Cải tiến v1.2.8:
+            - **TÍCH HỢP SẴN 312 LINH KIỆN KHO XÁC**: Ứng dụng tự chứa đầy đủ cơ sở dữ liệu kho OPPO (Phú Lâm VN001021). Mở app là có ngay toàn bộ danh sách linh kiện mà không cần chờ mạng!
+            - **ĐỒNG BỘ 2 CHIỀU REALTIME (WEBSOCKET + HTTP FALLBACK)**:
+              - Quét trên điện thoại cập nhật tức thời lên máy tính.
+              - Quét trên máy tính cập nhật tức thời về điện thoại.
+              - Tự động giữ kết nối (Heartbeat Ping/Pong) và hỗ trợ HTTP REST dự phòng.
+            - **GIAO DIỆN MỚI 3 TAB CHUYÊN NGHIỆP**:
+              - Tab 1: **Quét Camera** (Khung ngắm laze, hỗ trợ đèn flash, hiển thị kết quả khớp/không khớp).
+              - Tab 2: **Danh Sách Kho** (Tìm kiếm tức thì theo Số RO, Mã LK, Model; Lọc OOW/IW; Nút quét 1 chạm; Kéo xuống để đồng bộ lại).
+              - Tab 3: **Kết Nối PC** (Nhận diện mã QR PC Hub tự động, hiển thị trạng thái kết nối trực quan).
+            - **KHẮC PHỤC TRIỆT ĐỂ LỖI CÀI ĐẶT & CHỮ KÝ SỐ**:
+              - Ký chuẩn V1 và V2 Signing Scheme.
+              - Package ID chuẩn: `com.stocksync.hub.scanner`.
+              - Đầy đủ bộ biểu tượng Adaptive Launcher Icons cho mọi dòng Android.
             
             ### 📥 Hướng dẫn cài đặt APK trên điện thoại:
-            1. Tải file **`StockSync.apk`** đính kèm bên dưới.
+            1. Tải file **`StockSync.apk`** (hoặc `StockSync-v1.2.8.apk`) đính kèm bên dưới.
             2. Nếu có thông báo bảo mật "Blocked by Play Protect" (Bị chặn bởi Play Protect):
                - Nhấn vào dòng **"Chi tiết khác" (More details)**.
                - Nhấn chọn **"Vẫn cài đặt" (Install anyway)**.
             3. Cấp quyền Camera khi mở app lần đầu để bắt đầu quét mã linh kiện xác kho.
           draft: false
           prerelease: false
-          files: release-output/*.apk
+          files: release-output/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

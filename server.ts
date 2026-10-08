@@ -357,27 +357,89 @@ async function startServer() {
   // Setup WebSocket Server for Mobile APK
   const wss = new WebSocketServer({ server, path: '/ws' });
 
+  // Heartbeat ping interval to keep connection alive on Cloud Run & mobile networks
+  setInterval(() => {
+    const pingMsg = JSON.stringify({ type: 'PING', timestamp: Date.now() });
+    wsClients.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(pingMsg); } catch (_) {}
+      }
+    });
+  }, 15000);
+
   wss.on('connection', (ws) => {
-    console.log('[WebSocket] Mobile client connected');
+    console.log('[WebSocket] Mobile client connected. Total clients:', wsClients.size + 1);
     wsClients.add(ws);
 
-    // Send initial state to mobile on connect
-    ws.send(JSON.stringify({
-      type: 'INIT_STATE',
-      payload: serverState,
-      version: serverState.version,
-      timestamp: Date.now()
-    }));
+    // Send full initial state to mobile on connect
+    try {
+      ws.send(JSON.stringify({
+        type: 'INIT_STATE',
+        payload: serverState,
+        version: serverState.version,
+        timestamp: Date.now()
+      }));
+    } catch (err) {
+      console.error('[WebSocket] Error sending INIT_STATE:', err);
+    }
 
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString());
-        console.log('[WebSocket] Received:', data.type);
+        console.log('[WebSocket] Received event:', data.type);
 
         if (data.type === 'SCAN_EVENT') {
           const barcode = data.barcode || data.scannedCode;
           if (barcode) {
-            processScan(barcode, 'mobile_apk');
+            const scanResult = processScan(barcode, 'mobile_apk');
+            try {
+              ws.send(JSON.stringify({
+                type: 'SCAN_ACK',
+                barcode,
+                success: !scanResult.error,
+                error: scanResult.error,
+                item: scanResult.item,
+                version: serverState.version,
+                timestamp: Date.now()
+              }));
+            } catch (_) {}
+          }
+        } else if (data.type === 'REQUEST_FULL_STATE' || data.type === 'REQUEST_STATE') {
+          try {
+            ws.send(JSON.stringify({
+              type: 'SYNC_FULL_STATE',
+              payload: serverState,
+              version: serverState.version,
+              timestamp: Date.now()
+            }));
+          } catch (_) {}
+        } else if (data.type === 'TOGGLE_SCAN' || data.type === 'MANUAL_SCAN') {
+          const barcode = data.barcode || data.cotSP || data.soRO;
+          if (barcode) {
+            processScan(barcode, 'mobile_manual');
+          }
+        } else if (data.type === 'REMOVE_SCAN') {
+          const itemId = data.itemId;
+          let foundItem: ServerInventoryItem | null = null;
+          [...serverState.iw, ...serverState.oow].forEach(it => {
+            if (it.id === itemId) {
+              it.daQuet = 0;
+              it.trangThai = 'Chưa Scan';
+              it.lastScannedAt = undefined;
+              it.scanHistory = [];
+              foundItem = it;
+            }
+          });
+
+          if (foundItem) {
+            serverState.version += 1;
+            serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
+            saveStateToDisk(serverState);
+            broadcastSync({
+              type: 'SCAN_REMOVED',
+              payload: { itemId, item: foundItem, version: serverState.version },
+              version: serverState.version
+            });
           }
         }
       } catch (e) {
@@ -387,7 +449,12 @@ async function startServer() {
 
     ws.on('close', () => {
       console.log('[WebSocket] Mobile client disconnected');
-      wsClients.add(ws);
+      wsClients.delete(ws);
+    });
+
+    ws.on('error', (err) => {
+      console.warn('[WebSocket] Mobile client error:', err);
+      wsClients.delete(ws);
     });
   });
 

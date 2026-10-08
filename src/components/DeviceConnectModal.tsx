@@ -22,8 +22,10 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const { isInstallable, install } = usePWAInstall();
   const [copiedMain, setCopiedMain] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [remoteTag, setRemoteTag] = useState<string>('v1.2.7');
+  const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
-  // URL ưu tiên cho thiết bị di động truy cập trực tiếp
+  // URL ưu tiên cho thiết bị di động truy cập trực tiếp (Public Shared URL)
   const defaultUrl = 'https://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app';
   const [currentUrl, setCurrentUrl] = useState(defaultUrl);
 
@@ -31,7 +33,12 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
     if (typeof window !== 'undefined') {
       const loc = window.location.href;
       if (loc && !loc.includes('about:blank') && !loc.includes('srcdoc')) {
-        setCurrentUrl(loc);
+        let clean = loc.split('?')[0].split('#')[0];
+        // Thay thế subdomain dev nội bộ bằng pre công khai để điện thoại kết nối được
+        if (clean.includes('ais-dev-')) {
+          clean = clean.replace('ais-dev-', 'ais-pre-');
+        }
+        setCurrentUrl(clean);
       }
     }
 
@@ -46,7 +53,10 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
       const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
       if (response.ok) {
         const data = await response.json();
-        const apkAsset = data.assets.find((a: any) => a.name.toLowerCase().endsWith('.apk'));
+        const tag = (data.tag_name || '').trim();
+        setRemoteTag(tag);
+        setIsLatestOnGitHub(tag.includes('1.2.8'));
+        const apkAsset = data.assets?.find((a: any) => a.name.toLowerCase().endsWith('.apk'));
         if (apkAsset) {
           setDownloadUrl(apkAsset.browser_download_url);
         }
@@ -113,38 +123,51 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                   </h3>
                 </div>
                 <p className="text-xs text-slate-600 mt-1">
-                  Ứng dụng Android đóng gói toàn bộ mã nguồn bên trong APK (Offline Standalone). Hoạt động độc lập 100%, không phụ thuộc đường dẫn máy chủ bên ngoài, mở app là dùng ngay.
+                  Ứng dụng Android đóng gói toàn bộ 312 mã linh kiện bên trong APK. Hoạt động độc lập 100%, đồng bộ 2 chiều qua WiFi / 4G với máy tính.
                 </p>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Bản v1.2.7 (Final Stable Build)
+                    Bản Code v1.2.8 (Sẵn sàng)
                   </span>
-                  <span className="text-[11px] text-slate-500">Dung lượng: Tối ưu Release</span>
+                  <span className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                    Bản Release trên GitHub: {remoteTag}
+                  </span>
                 </div>
               </div>
             </div>
 
             <a
-              href={downloadUrl || "/StockSync.apk"}
+              href={downloadUrl || "https://github.com/Lio0307-Oanh-PhiLip/StockSync-Hub/releases"}
               download="StockSync.apk"
               className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>{downloadUrl ? 'Tải Ngay StockSync.apk (v1.2.7)' : 'Đang lấy link tải mới nhất...'}</span>
+              <span>{isLatestOnGitHub ? 'Tải Ngay StockSync-v1.2.8.apk' : `Tải APK Hiện Có (${remoteTag})`}</span>
             </a>
 
-            <div className="mt-2.5 p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-1">
-              <p className="font-bold flex items-center gap-1 text-red-600">
-                <span>⚠️</span> QUAN TRỌNG: Gỡ cài đặt bản cũ trước!
-              </p>
-              <p className="text-red-700 font-medium">
-                Để tránh lỗi "Chưa cài đặt" hoặc "Phân tích gói", bạn <b>BẮT BUỘC</b> phải gỡ bỏ bản StockSync cũ trên máy trước khi cài bản v1.2.3.
+            {!isLatestOnGitHub && (
+              <div className="mt-2.5 p-3 bg-amber-50/90 border border-amber-300 rounded-xl text-xs text-amber-950 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <span>⚡</span> Chưa có bản APK v1.2.8 trên GitHub?
+                </p>
+                <p className="text-slate-700 leading-relaxed">
+                  Bản code <b>v1.2.8</b> đã hoàn thành trong AI Studio. Để GitHub tạo file <b>StockSync-v1.2.8.apk</b> mới nhất:
+                </p>
+                <p className="text-blue-800 font-semibold">
+                  👉 Hãy nhấn nút <b>"Push changes to GitHub"</b> ở bảng điều khiển bên phải Google AI Studio. GitHub Actions sẽ tự động đóng gói file APK mới chỉ sau ~2 phút!
+                </p>
+              </div>
+            )}
+
+            <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-700 space-y-1">
+              <p className="font-bold flex items-center gap-1 text-slate-900">
+                <span>🛡️</span> Cài đặt an toàn:
               </p>
               <p>
-                1. Sau khi gỡ bản cũ, nhấn vào file <strong>StockSync.apk</strong> mới (v1.2.3).
+                1. Gỡ cài đặt bản cũ trên điện thoại trước khi cài bản mới để tránh lỗi chữ ký.
               </p>
               <p>
-                2. Nếu máy hỏi <em>"Cho phép cài đặt từ nguồn này"</em> (Chrome/Tệp), hãy bật <strong>Bật / Cho phép</strong> rồi quay lại nhấn <strong>Cài đặt</strong>.
+                2. Nếu Google Play Protect cảnh báo, chọn <strong>"Chi tiết khác"</strong> &gt; <strong>"Vẫn cài đặt"</strong>.
               </p>
             </div>
           </div>
@@ -173,44 +196,53 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             </div>
           )}
 
-          {/* KHU VỰC QUÉT QR CODE / MỞ LINK TRÊN ĐIỆN THOẠI */}
+          {/* KHU VỰC QUÉT QR CODE / ĐỒNG BỘ 2 CHIỀU VỚI APP */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-blue-600" />
-              Mở Trên Điện Thoại Bằng Mã QR:
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-blue-600" />
+                Mã QR Kết Nối & Đồng Bộ 2 Chiều:
+              </h4>
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                Live 2-Way Hub
+              </span>
+            </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="bg-white p-2.5 rounded-xl shadow-xs border border-slate-200 shrink-0">
+              <div className="bg-white p-2.5 rounded-xl shadow-xs border border-slate-200 shrink-0 text-center">
                 <QRCodeSVG 
-                  value={currentUrl} 
+                  value={currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws'} 
                   size={130}
                   level="M"
                   includeMargin={false}
                   fgColor="#0f172a"
                 />
+                <span className="block text-[10px] text-slate-500 font-semibold mt-1">Quét bằng App để kết nối</span>
               </div>
 
               <div className="flex-1 space-y-2.5 w-full">
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Bật camera điện thoại quét mã QR bên cạnh để mở ứng dụng hoặc tải file APK về máy.
+                  Mở ứng dụng <b>StockSync Scanner</b> trên điện thoại, hướng camera vào mã QR bên cạnh. Ứng dụng sẽ tự động nhận diện và kết nối đồng bộ 2 chiều với PC.
                 </p>
 
-                <div className="flex items-center gap-1.5">
-                  <input 
-                    type="text" 
-                    readOnly 
-                    value={currentUrl} 
-                    className="flex-1 bg-white border border-slate-200 text-xs font-mono text-slate-700 px-3 py-2 rounded-lg outline-none select-all truncate"
-                  />
-                  <button 
-                    onClick={() => handleCopy(currentUrl)}
-                    className="flex items-center justify-center px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1 active:scale-95"
-                    title="Sao chép link"
-                  >
-                    {copiedMain ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
-                  </button>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-500">Địa chỉ WebSocket Server (PC):</span>
+                  <div className="flex items-center gap-1.5">
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws'} 
+                      className="flex-1 bg-white border border-slate-200 text-xs font-mono text-slate-700 px-3 py-2 rounded-lg outline-none select-all truncate"
+                    />
+                    <button 
+                      onClick={() => handleCopy(currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws')}
+                      className="flex items-center justify-center px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1 active:scale-95"
+                      title="Sao chép link WebSocket"
+                    >
+                      {copiedMain ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <a
@@ -220,7 +252,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                   className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Mở trong cửa sổ riêng</span>
+                  <span>Mở giao diện Web trong cửa sổ riêng</span>
                 </a>
               </div>
             </div>

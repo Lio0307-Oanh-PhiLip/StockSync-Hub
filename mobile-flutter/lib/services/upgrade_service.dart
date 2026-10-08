@@ -16,7 +16,7 @@ class UpgradeService {
   static Future<void> checkForUpdate(BuildContext context, {bool silent = false}) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.2.7";
+      final String currentVersion = packageInfo.version.isNotEmpty ? packageInfo.version : "1.2.8";
 
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
@@ -217,7 +217,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                 ),
               )
             ] else ...[
-              const Text('Bản cập nhật v1.2.7 đã khắc phục hoàn toàn lỗi cài đặt trên smartphone và tối ưu camera quét QR kho xác.'),
+              const Text('Bản cập nhật v1.2.8 bổ sung danh sách 312 linh kiện kho xác, hỗ trợ đồng bộ 2 chiều Realtime qua WebSocket & HTTP, và khắc phục toàn diện lỗi cài đặt.'),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
