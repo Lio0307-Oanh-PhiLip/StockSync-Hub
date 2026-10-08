@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-VERSION_CODE="16"
-VERSION_NAME="1.1.6"
+VERSION_CODE="127"
+VERSION_NAME="1.2.7"
 
 echo "=================================================="
 echo "  StockSync Hub - APK Build Engine v$VERSION_NAME"

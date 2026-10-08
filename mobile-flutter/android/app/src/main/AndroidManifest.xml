@@ -46,7 +46,7 @@
         <!-- FileProvider hỗ trợ mở tệp APK cập nhật an toàn trên Android 7.0+ -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.stocksync.app.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

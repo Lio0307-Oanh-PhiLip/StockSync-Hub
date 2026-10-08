@@ -15,8 +15,8 @@ export const UpdateChecker: React.FC = () => {
   const [showPlayProtectGuide, setShowPlayProtectGuide] = useState(false);
 
   // GitHub Repository Configuration
-  const GITHUB_REPO = "philiptrinh1990/stocksync-hub"; 
-  const CURRENT_VERSION = "1.2.6";
+  const GITHUB_REPO = "Lio0307-Oanh-PhiLip/StockSync-Hub"; 
+  const CURRENT_VERSION = "1.2.7";
 
   useEffect(() => {
     checkForUpdates();

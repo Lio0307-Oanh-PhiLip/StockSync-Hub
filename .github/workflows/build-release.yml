@@ -1,12 +1,9 @@
-name: Build and Release All Platforms (Exe, Deb, Apk)
+name: Build and Release Desktop & Web Packages
 
 on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 permissions:
@@ -15,7 +12,7 @@ permissions:
 
 jobs:
   build-release:
-    name: Build & Release Package v1.1.6
+    name: Build & Release Desktop & Web Packages v1.2.7
     runs-on: ubuntu-latest
     
     steps:
@@ -28,24 +25,6 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Set up Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Configure Android SDK Tools
-        run: |
-          echo "Configuring Android SDK Build-Tools path..."
-          if [ -d "$ANDROID_HOME/build-tools" ]; then
-            LATEST_BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
-            echo "Found Build Tools: $LATEST_BUILD_TOOLS"
-            echo "$LATEST_BUILD_TOOLS" >> $GITHUB_PATH
-          fi
-          if [ -d "$ANDROID_HOME/platform-tools" ]; then
-            echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          fi
-
       - name: Install NPM Dependencies
         run: npm install --no-audit --no-fund
 
@@ -53,11 +32,6 @@ jobs:
         run: |
           ./node_modules/.bin/vite build
           ./node_modules/.bin/esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
-
-      - name: Build Android APK (v1.1.6)
-        run: |
-          chmod +x ./scripts/build-apk.sh
-          ./scripts/build-apk.sh
 
       - name: Create Windows Portable Archive (.zip bundle)
         run: |
@@ -70,7 +44,7 @@ jobs:
           mkdir -p build-deb/usr/local/bin build-deb/DEBIAN
           cat << 'EOF' > build-deb/DEBIAN/control
 Package: stocksync-hub
-Version: 1.1.6
+Version: 1.2.7
 Section: utils
 Priority: optional
 Architecture: all
@@ -78,41 +52,33 @@ Maintainer: StockSync Team <support@stocksync.local>
 Description: StockSync Hub - Kho Xac Linh Kien & Quan Ly Kiem Ke
 EOF
           cp -r dist build-deb/usr/local/bin/stocksync-dist
-          dpkg-deb --build build-deb stocksync-hub_1.1.6_all.deb
+          dpkg-deb --build build-deb stocksync-hub_1.2.7_all.deb
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-artifacts-v1.1.6
+          name: release-artifacts-v1.2.7
           path: |
-            public/StockSync.apk
-            stocksync-hub_1.1.6_all.deb
+            stocksync-hub_1.2.7_all.deb
             stocksync-windows-x64.zip
 
       - name: Auto-Release to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.6' }}
-          name: 'StockSync Hub v1.1.6 (Official Release)'
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.7' }}
+          name: 'StockSync Hub ${{ github.ref_type == 'tag' && github.ref_name || 'v1.2.7' }} (Desktop Packages)'
           body: |
-            ## 🚀 StockSync Hub v1.1.6 - Phiên bản phát hành chính thức
+            ## 🚀 StockSync Hub v1.2.7 - Desktop & Server Packages
             
-            Hệ thống quản lý đối chiếu & quét linh kiện xác kho (IW/OOW) thời gian thực.
-            
-            ### 🛠️ Các cải tiến & Fix lỗi trong v1.1.6:
-            - ✅ **Khắc phục lỗi Google Play Protect**: Đã ký chứng chỉ số Enterprise (v1, v2, v3 schemes) và tối ưu Target SDK 34.
-            - ✅ **Khắc phục lỗi "Ứng dụng chưa được cài đặt"**: Tích hợp FileProvider an toàn, tương thích mọi phiên bản Android 5.0 đến 14/15.
-            - ✅ **Auto-update mượt mà**: Tải trực tiếp từ GitHub Releases và tự động kích hoạt trình cài đặt gói Android.
+            Gói cài đặt PC / Server đồng bộ dữ liệu thời gian thực.
             
             ### 📦 Danh sách tệp đính kèm:
-            - 📱 **StockSync.apk**: Ứng dụng Android độc lập (Camera QR/Barcode Scanner, Auto-update từ GitHub Releases, Offline Sync).
             - 🪟 **stocksync-windows-x64.zip**: Gói ứng dụng chạy trên máy tính Windows (Hỗ trợ súng quét mã vạch USB/Bluetooth).
-            - 🐧 **stocksync-hub_1.1.6_all.deb**: Gói cài đặt chuẩn Debian / Ubuntu Linux.
+            - 🐧 **stocksync-hub_1.2.7_all.deb**: Gói cài đặt chuẩn Debian / Ubuntu Linux.
           draft: false
           prerelease: false
           files: |
-            public/StockSync.apk
-            stocksync-hub_1.1.6_all.deb
+            stocksync-hub_1.2.7_all.deb
             stocksync-windows-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
