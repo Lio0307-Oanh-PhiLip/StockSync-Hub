@@ -30,8 +30,8 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [remoteTag, setRemoteTag] = useState<string>('v1.2.7');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
-  // Connection mode: 'wifi' (local LAN - recommended for warehouse), 'web' (open in mobile browser), 'cloud' (remote cloud / tunnel)
-  const [connectMode, setConnectMode] = useState<'wifi' | 'web' | 'cloud'>('wifi');
+  // Connection mode: 'web' (open in mobile browser - recommended & works immediately), 'wifi' (local LAN for local PC), 'cloud' (remote cloud / tunnel)
+  const [connectMode, setConnectMode] = useState<'web' | 'wifi' | 'cloud'>('web');
   
   // Network detection state
   const [detectedIps, setDetectedIps] = useState<string[]>([]);
@@ -220,39 +220,39 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-3.5 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setConnectMode('wifi')}
-                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
-                  connectMode === 'wifi' 
-                    ? 'bg-white text-blue-700 shadow-xs' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Wifi className="w-3.5 h-3.5" />
-                <span>Wi-Fi Nội Bộ (Kho)</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => setConnectMode('web')}
                 className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
                   connectMode === 'web' 
-                    ? 'bg-white text-blue-700 shadow-xs' 
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 bg-white/50'
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>Web Trình Duyệt</span>
+                <span>1. Web Scanner (Dùng Ngay)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnectMode('wifi')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
+                  connectMode === 'wifi' 
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 bg-white/50'
+                }`}
+              >
+                <Wifi className="w-3.5 h-3.5" />
+                <span>2. Wi-Fi LAN (App APK)</span>
               </button>
               <button
                 type="button"
                 onClick={() => setConnectMode('cloud')}
                 className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
                   connectMode === 'cloud' 
-                    ? 'bg-white text-blue-700 shadow-xs' 
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-blue-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900 bg-white/50'
                 }`}
               >
                 <Cloud className="w-3.5 h-3.5" />
-                <span>Cloud / Ngrok</span>
+                <span>3. Cloud / Ngrok</span>
               </button>
             </div>
 
@@ -261,26 +261,72 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
               <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-xs shrink-0 text-center">
                 <QRCodeSVG 
                   value={currentQrValue} 
-                  size={140}
+                  size={145}
                   level="M"
                   includeMargin={false}
                   fgColor="#0f172a"
                 />
-                <span className="block text-[10px] text-blue-700 font-bold mt-1.5">
-                  {connectMode === 'web' ? 'Quét bằng Camera mở Web' : 'Quét bằng App StockSync'}
+                <span className="block text-[11px] text-blue-700 font-bold mt-1.5">
+                  {connectMode === 'web' ? 'Quét mở Web Scanner ngay' : 'Quét bằng App StockSync'}
                 </span>
               </div>
 
               <div className="flex-1 space-y-2.5 w-full text-xs">
+                {connectMode === 'web' && (
+                  <>
+                    <div className="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-1">
+                      <p className="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
+                        <span>⭐</span> Hoạt động ngay 100% không cần cấu hình IP:
+                      </p>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        1. Dùng <b>Camera thường của bất kỳ điện thoại nào</b> (iPhone hoặc Android) hướng vào mã QR bên cạnh.
+                      </p>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        2. Nhấp vào đường link để mở ứng dụng trực tiếp trên <b>Chrome / Safari</b>.
+                      </p>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        3. Nhấn nút <b>Camera</b> trên điện thoại để quét mã vạch. Kết quả quét sẽ <b>nhảy ngay lập tức lên màn hình PC này theo thời gian thực</b>!
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-slate-500">Đường dẫn Web Scanner:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input 
+                          type="text" 
+                          readOnly 
+                          value={currentQrValue} 
+                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-700 px-2.5 py-1.5 rounded-lg outline-none select-all truncate"
+                        />
+                        <button 
+                          onClick={() => handleCopy(currentQrValue)}
+                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
+                        >
+                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {connectMode === 'wifi' && (
                   <>
-                    <p className="text-slate-600 leading-relaxed">
-                      💡 <b>Khuyên dùng cho kho/cửa hàng:</b> Điện thoại và PC kết nối chung Wi-Fi. Mở app <b>StockSync Scanner</b> trên điện thoại quét mã QR để kết nối trực tiếp tốc độ cao.
-                    </p>
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-amber-950">
+                      <p className="font-bold flex items-center gap-1 text-amber-900 text-[11px]">
+                        <span>⚠️</span> Hướng dẫn kết nối App APK qua mạng LAN (Wi-Fi):
+                      </p>
+                      <p className="text-[11px] leading-relaxed text-slate-700">
+                        Bạn đang xem bản web Cloud. Để App APK tìm thấy PC trong mạng Wi-Fi, máy tính PC của bạn cần chạy máy chủ cục bộ và <b>phải nhập chính xác địa chỉ IPv4 máy tính PC</b> của bạn:
+                      </p>
+                      <p className="text-[11px] font-semibold text-blue-800">
+                        👉 Bấm Win+R gõ <code>cmd</code> rồi gõ lệnh <code>ipconfig</code> để xem IPv4 (ví dụ 192.168.1.15).
+                      </p>
+                    </div>
                     
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-slate-700">Địa chỉ IP máy tính PC:</span>
+                        <span className="font-semibold text-slate-700">Địa chỉ IPv4 của máy tính PC bạn:</span>
                         <span className="text-slate-400 text-[10px]">Cổng: {port}</span>
                       </div>
                       
@@ -302,55 +348,9 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
                         </button>
                       </div>
 
-                      {detectedIps.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1 mt-1">
-                          <span className="text-[10px] text-slate-500">IP phát hiện:</span>
-                          {detectedIps.map(ip => (
-                            <button
-                              key={ip}
-                              type="button"
-                              onClick={() => setSelectedIp(ip)}
-                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono border transition ${
-                                selectedIp === ip 
-                                  ? 'bg-blue-600 text-white border-blue-600' 
-                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
-                              }`}
-                            >
-                              {ip}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <p className="text-[10px] text-slate-500 italic mt-0.5">
-                        * Mẹo: Trên Windows bấm Win+R gõ <code>cmd</code> rồi gõ <code>ipconfig</code> để xem dòng IPv4 Address.
+                      <p className="text-[10px] text-slate-500 italic">
+                        * Sau khi sửa IP, mã QR bên cạnh sẽ tự cập nhật. Mở app APK quét lại mã để kết nối.
                       </p>
-                    </div>
-                  </>
-                )}
-
-                {connectMode === 'web' && (
-                  <>
-                    <p className="text-slate-600 leading-relaxed">
-                      🌐 <b>Quét ngay không cần cài đặt:</b> Dùng camera điện thoại iPhone / Android quét mã QR bên cạnh để mở ứng dụng quét mã trực tiếp trên trình duyệt Chrome/Safari.
-                    </p>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-slate-500">Đường dẫn Web Scanner:</span>
-                      <div className="flex items-center gap-1.5">
-                        <input 
-                          type="text" 
-                          readOnly 
-                          value={currentQrValue} 
-                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-700 px-2.5 py-1.5 rounded-lg outline-none select-all truncate"
-                        />
-                        <button 
-                          onClick={() => handleCopy(currentQrValue)}
-                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
-                        >
-                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
-                        </button>
-                      </div>
                     </div>
                   </>
                 )}

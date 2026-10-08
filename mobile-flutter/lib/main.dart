@@ -391,17 +391,51 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
             try {
               _channel?.sink.add(json.encode({'type': 'REQUEST_FULL_STATE'}));
             } catch (_) {}
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '🎉 ĐÃ KẾT NỐI VỚI PC HUB THÀNH CÔNG!',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Color(0xFF059669),
+                  behavior: SnackBarBehavior.floating,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              HapticFeedback.heavyImpact();
+            }
           }
           _handleServerMessage(message);
         },
         onError: (err) {
           _isReconnecting = false;
+          final wasConnected = _isConnected;
           if (_isConnected) {
             setState(() {
               _isConnected = false;
             });
           }
           debugPrint('[WebSocket Error]: $err');
+          if (mounted && wasConnected) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ Mất kết nối tới PC Hub ($_serverUrl)'),
+                backgroundColor: const Color(0xFFDC2626),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         },
         onDone: () {
           _isReconnecting = false;
@@ -687,14 +721,14 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.qr_code_2_rounded, color: Colors.white, size: 22),
+            const Icon(Icons.wifi_find_rounded, color: Colors.white, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('✅ Đã nhận mã QR kết nối PC!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('📡 Đã nhận mã QR! Đang thử kết nối PC...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   Text(wsUrl, style: const TextStyle(fontSize: 11, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -703,7 +737,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
         ),
         backgroundColor: const Color(0xFF2563EB),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3),
       ),
     );
     HapticFeedback.mediumImpact();
