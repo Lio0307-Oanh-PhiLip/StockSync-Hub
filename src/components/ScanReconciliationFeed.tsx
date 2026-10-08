@@ -6,8 +6,6 @@ import {
   CheckCircle2, 
   ExternalLink, 
   Camera, 
-  Volume2, 
-  VolumeX,
   Layers,
   ChevronRight
 } from 'lucide-react';
@@ -23,8 +21,8 @@ interface ScanReconciliationFeedProps {
   onClearScannedFeed: () => void;
   onOpenScannerModal: () => void;
   onOpenPartDetailsModal: (maLK: string, bhDv?: string) => void;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 export const ScanReconciliationFeed: React.FC<ScanReconciliationFeedProps> = ({
@@ -36,9 +34,7 @@ export const ScanReconciliationFeed: React.FC<ScanReconciliationFeedProps> = ({
   onRemoveScannedItem,
   onClearScannedFeed,
   onOpenScannerModal,
-  onOpenPartDetailsModal,
-  soundEnabled,
-  onToggleSound
+  onOpenPartDetailsModal
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -93,9 +89,9 @@ export const ScanReconciliationFeed: React.FC<ScanReconciliationFeedProps> = ({
               onChange={(e) => onScanInputChange(e.target.value)}
               placeholder="Bắn mã vạch vào đây..."
               autoFocus
-              className="w-full pl-10 pr-24 py-2 bg-slate-50/70 hover:bg-white focus:bg-white border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 transition-all outline-none"
+              className="w-full pl-10 pr-12 py-2 bg-slate-50/70 hover:bg-white focus:bg-white border-2 border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 transition-all outline-none"
             />
-            <div className="absolute right-2 flex items-center gap-1">
+            <div className="absolute right-2 flex items-center">
               <button
                 type="button"
                 onClick={onOpenScannerModal}
@@ -103,14 +99,6 @@ export const ScanReconciliationFeed: React.FC<ScanReconciliationFeedProps> = ({
                 className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
               >
                 <Camera className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={onToggleSound}
-                title={soundEnabled ? 'Đang bật âm thanh cảnh báo' : 'Đã tắt âm thanh'}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { Camera, X, RefreshCw, Zap, ZapOff, Image as ImageIcon, Volume2, VolumeX, CheckCircle2, AlertCircle, Layers } from 'lucide-react';
+import { Camera, X, RefreshCw, Zap, ZapOff, Image as ImageIcon, CheckCircle2, AlertCircle, Layers } from 'lucide-react';
 import { ServiceType } from '../types';
 
 interface BarcodeScannerModalProps {
@@ -9,8 +9,8 @@ interface BarcodeScannerModalProps {
   onScanSuccess: (decodedText: string, source: 'camera') => void;
   activeTab: ServiceType;
   onTabChange: (tab: ServiceType) => void;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
@@ -18,9 +18,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   onClose,
   onScanSuccess,
   activeTab,
-  onTabChange,
-  soundEnabled,
-  onToggleSound
+  onTabChange
 }) => {
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
@@ -275,7 +273,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             </button>
           </div>
 
-          {/* Audio & Continuous Toggle */}
+          {/* Mode Toggle */}
           <div className="flex items-center gap-2">
             <button
               id="toggle-continuous-scan"
@@ -288,16 +286,6 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               }`}
             >
               {continuousMode ? '⚡ Quét liên tục' : '🎯 Quét 1 lần'}
-            </button>
-
-            <button
-              id="toggle-sound-btn"
-              type="button"
-              onClick={onToggleSound}
-              title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-              className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition"
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
             </button>
           </div>
         </div>

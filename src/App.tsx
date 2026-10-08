@@ -820,8 +820,6 @@ export default function App() {
           onClearScannedFeed={handleClearFeed}
           onOpenScannerModal={() => setIsScannerModalOpen(true)}
           onOpenPartDetailsModal={handleOpenPartModal}
-          soundEnabled={soundEnabled}
-          onToggleSound={handleToggleSound}
         />
 
         {/* MODAL: Danh sách phiếu CẦN SCAN (Matching Figure 3) */}
@@ -847,8 +845,6 @@ export default function App() {
           }}
           activeTab="OOW"
           onTabChange={() => {}}
-          soundEnabled={soundEnabled}
-          onToggleSound={handleToggleSound}
         />
 
         {/* MODAL: Automated Full Report */}

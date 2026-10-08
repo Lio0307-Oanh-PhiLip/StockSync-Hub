@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Camera, QrCode, Volume2, VolumeX, Sparkles, Plus, Radio, Layers } from 'lucide-react';
+import { Camera, QrCode, Sparkles, Plus, Radio, Layers } from 'lucide-react';
 import { AppSheetTab, ServiceType } from '../types';
 
 interface ScanBarProps {
@@ -14,8 +14,8 @@ interface ScanBarProps {
   daScanCount: number;
   onOpenScannerModal: () => void;
   onOpenManualModal: () => void;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   autoFocusEnabled: boolean;
   onToggleAutoFocus: () => void;
 }
@@ -32,8 +32,6 @@ export const ScanBar: React.FC<ScanBarProps> = ({
   daScanCount,
   onOpenScannerModal,
   onOpenManualModal,
-  soundEnabled,
-  onToggleSound,
   autoFocusEnabled,
   onToggleAutoFocus
 }) => {
@@ -94,16 +92,6 @@ export const ScanBar: React.FC<ScanBarProps> = ({
           >
             <Radio className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{autoFocusEnabled ? 'Súng Scan: Bật' : 'Súng Scan: Tắt'}</span>
-          </button>
-
-          <button
-            id="toggle-audio-feedback-btn"
-            type="button"
-            onClick={onToggleSound}
-            title={soundEnabled ? 'Tắt âm thanh thông báo' : 'Bật âm thanh tiếng Bíp'}
-            className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
           </button>
         </div>
       </div>
