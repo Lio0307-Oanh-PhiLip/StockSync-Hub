@@ -9,7 +9,12 @@ import {
   Download, 
   ExternalLink, 
   Camera,
-  Check
+  Check,
+  Wifi,
+  Cloud,
+  HelpCircle,
+  RefreshCw,
+  Radio
 } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -25,27 +30,80 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
   const [remoteTag, setRemoteTag] = useState<string>('v1.2.7');
   const [isLatestOnGitHub, setIsLatestOnGitHub] = useState<boolean>(false);
 
+  // Connection mode: 'wifi' (local LAN - recommended for warehouse), 'web' (open in mobile browser), 'cloud' (remote cloud / tunnel)
+  const [connectMode, setConnectMode] = useState<'wifi' | 'web' | 'cloud'>('wifi');
+  
+  // Network detection state
+  const [detectedIps, setDetectedIps] = useState<string[]>([]);
+  const [selectedIp, setSelectedIp] = useState<string>('192.168.1.100');
+  const [port, setPort] = useState<number>(3000);
+  const [onlineWS, setOnlineWS] = useState<number>(0);
+
   // URL ưu tiên cho thiết bị di động truy cập trực tiếp (Public Shared URL)
   const defaultUrl = 'https://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app';
   const [currentUrl, setCurrentUrl] = useState(defaultUrl);
+  const [customCloudUrl, setCustomCloudUrl] = useState(defaultUrl);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const loc = window.location.href;
       if (loc && !loc.includes('about:blank') && !loc.includes('srcdoc')) {
         let clean = loc.split('?')[0].split('#')[0];
-        // Thay thế subdomain dev nội bộ bằng pre công khai để điện thoại kết nối được
         if (clean.includes('ais-dev-')) {
           clean = clean.replace('ais-dev-', 'ais-pre-');
         }
         setCurrentUrl(clean);
+        setCustomCloudUrl(clean);
+
+        // If user is accessing via an IP in browser, use that IP!
+        const hostname = window.location.hostname;
+        if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.includes('run.app')) {
+          setSelectedIp(hostname);
+        }
       }
     }
 
     if (isOpen) {
       fetchLatestApkUrl();
+      fetchNetworkInfo();
+      fetchHealth();
+      const interval = setInterval(() => {
+        fetchHealth();
+      }, 2500);
+      return () => clearInterval(interval);
     }
   }, [isOpen]);
+
+  const fetchNetworkInfo = async () => {
+    try {
+      const res = await fetch('/api/network-info');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.port) setPort(data.port);
+        if (Array.isArray(data.localIps) && data.localIps.length > 0) {
+          // Filter to prefer 192.168.x.x or 10.x.x.x or first available
+          const validIps = data.localIps.filter((ip: string) => !ip.startsWith('127.') && !ip.startsWith('169.254.'));
+          if (validIps.length > 0) {
+            setDetectedIps(validIps);
+            setSelectedIp(validIps[0]);
+          } else {
+            setDetectedIps(data.localIps);
+            if (data.localIps[0]) setSelectedIp(data.localIps[0]);
+          }
+        }
+      }
+    } catch (_) {}
+  };
+
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setOnlineWS(data.onlineWS || 0);
+      }
+    } catch (_) {}
+  };
 
   const fetchLatestApkUrl = async () => {
     try {
@@ -81,9 +139,35 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
     }
   };
 
+  // Compute the exact QR value based on active connectMode
+  const getQrValue = (): string => {
+    if (connectMode === 'wifi') {
+      const cleanIp = selectedIp.trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
+      const hostPort = cleanIp.includes(':') ? cleanIp : `${cleanIp}:${port}`;
+      return `ws://${hostPort}/ws`;
+    }
+    if (connectMode === 'web') {
+      if (currentUrl.includes('run.app') || currentUrl.startsWith('https://')) {
+        return currentUrl;
+      }
+      const cleanIp = selectedIp.trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
+      const hostPort = cleanIp.includes(':') ? cleanIp : `${cleanIp}:${port}`;
+      return `http://${hostPort}`;
+    }
+    // Cloud / Tunnel mode
+    let clean = customCloudUrl.trim();
+    if (clean.startsWith('http://')) clean = clean.replace('http://', 'ws://');
+    if (clean.startsWith('https://')) clean = clean.replace('https://', 'wss://');
+    if (!clean.startsWith('ws://') && !clean.startsWith('wss://')) clean = `wss://${clean}`;
+    if (!clean.endsWith('/ws')) clean = clean.endsWith('/') ? `${clean}ws` : `${clean}/ws`;
+    return clean;
+  };
+
+  const currentQrValue = getQrValue();
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-auto animate-in zoom-in-95">
+      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-auto animate-in zoom-in-95">
         
         {/* Header */}
         <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
@@ -93,10 +177,10 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             </div>
             <div>
               <h2 className="text-base font-bold leading-tight">
-                Cài Đặt App Cho Android & Điện Thoại
+                Kết Nối & Cài Đặt App Cho Điện Thoại
               </h2>
               <p className="text-xs text-slate-300">
-                Ứng dụng quét mã linh kiện qua camera di động
+                Đồng bộ 2 chiều dữ liệu kho xác linh kiện giữa PC và điện thoại di động
               </p>
             </div>
           </div>
@@ -110,13 +194,214 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
 
         <div className="p-5 space-y-4 max-h-[82vh] overflow-y-auto text-slate-700">
           
-          {/* LỰA CHỌN 1: TẢI FILE APK CHÍNH THỨC */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-600/30 rounded-2xl p-4 shadow-xs">
+          {/* KHU VỰC QUÉT QR CODE KẾT NỐI REALTIME (ƯU TIÊN HÀNG ĐẦU) */}
+          <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 border-2 border-blue-500/30 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-blue-600" />
+                Mã QR Kết Nối & Đồng Bộ 2 Chiều:
+              </h4>
+              
+              {/* Live Connection Badge */}
+              {onlineWS > 0 ? (
+                <span className="flex items-center gap-1.5 text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-300 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Đã kết nối {onlineWS} điện thoại
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-[11px] font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full border border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                  Chờ quét từ điện thoại
+                </span>
+              )}
+            </div>
+
+            {/* TAB SELECTOR CHO PHƯƠNG THỨC KẾT NỐI */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-3.5 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setConnectMode('wifi')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
+                  connectMode === 'wifi' 
+                    ? 'bg-white text-blue-700 shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Wifi className="w-3.5 h-3.5" />
+                <span>Wi-Fi Nội Bộ (Kho)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnectMode('web')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
+                  connectMode === 'web' 
+                    ? 'bg-white text-blue-700 shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Web Trình Duyệt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnectMode('cloud')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition cursor-pointer ${
+                  connectMode === 'cloud' 
+                    ? 'bg-white text-blue-700 shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Cloud / Ngrok</span>
+              </button>
+            </div>
+
+            {/* QR CODE & THÔNG TIN ĐỊA CHỈ */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="p-2 bg-white rounded-xl border border-slate-200 shadow-xs shrink-0 text-center">
+                <QRCodeSVG 
+                  value={currentQrValue} 
+                  size={140}
+                  level="M"
+                  includeMargin={false}
+                  fgColor="#0f172a"
+                />
+                <span className="block text-[10px] text-blue-700 font-bold mt-1.5">
+                  {connectMode === 'web' ? 'Quét bằng Camera mở Web' : 'Quét bằng App StockSync'}
+                </span>
+              </div>
+
+              <div className="flex-1 space-y-2.5 w-full text-xs">
+                {connectMode === 'wifi' && (
+                  <>
+                    <p className="text-slate-600 leading-relaxed">
+                      💡 <b>Khuyên dùng cho kho/cửa hàng:</b> Điện thoại và PC kết nối chung Wi-Fi. Mở app <b>StockSync Scanner</b> trên điện thoại quét mã QR để kết nối trực tiếp tốc độ cao.
+                    </p>
+                    
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-slate-700">Địa chỉ IP máy tính PC:</span>
+                        <span className="text-slate-400 text-[10px]">Cổng: {port}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <input 
+                          type="text" 
+                          value={selectedIp}
+                          onChange={(e) => setSelectedIp(e.target.value)}
+                          placeholder="vd: 192.168.1.15"
+                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-800 px-2.5 py-1.5 rounded-lg outline-none focus:border-blue-500 focus:bg-white transition"
+                        />
+                        <button 
+                          onClick={() => handleCopy(currentQrValue)}
+                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
+                          title="Sao chép địa chỉ WebSocket"
+                        >
+                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                        </button>
+                      </div>
+
+                      {detectedIps.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                          <span className="text-[10px] text-slate-500">IP phát hiện:</span>
+                          {detectedIps.map(ip => (
+                            <button
+                              key={ip}
+                              type="button"
+                              onClick={() => setSelectedIp(ip)}
+                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono border transition ${
+                                selectedIp === ip 
+                                  ? 'bg-blue-600 text-white border-blue-600' 
+                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                              }`}
+                            >
+                              {ip}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <p className="text-[10px] text-slate-500 italic mt-0.5">
+                        * Mẹo: Trên Windows bấm Win+R gõ <code>cmd</code> rồi gõ <code>ipconfig</code> để xem dòng IPv4 Address.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {connectMode === 'web' && (
+                  <>
+                    <p className="text-slate-600 leading-relaxed">
+                      🌐 <b>Quét ngay không cần cài đặt:</b> Dùng camera điện thoại iPhone / Android quét mã QR bên cạnh để mở ứng dụng quét mã trực tiếp trên trình duyệt Chrome/Safari.
+                    </p>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-slate-500">Đường dẫn Web Scanner:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input 
+                          type="text" 
+                          readOnly 
+                          value={currentQrValue} 
+                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-700 px-2.5 py-1.5 rounded-lg outline-none select-all truncate"
+                        />
+                        <button 
+                          onClick={() => handleCopy(currentQrValue)}
+                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
+                        >
+                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {connectMode === 'cloud' && (
+                  <>
+                    <p className="text-slate-600 leading-relaxed">
+                      ☁️ <b>Kết nối qua Internet / Cloud:</b> Nhập địa chỉ Cloud Run, ngrok hoặc Cloudflare tunnel của bạn để kết nối từ xa ngoài mạng Wi-Fi.
+                    </p>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-slate-500">Địa chỉ WebSocket Cloud:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input 
+                          type="text" 
+                          value={customCloudUrl}
+                          onChange={(e) => setCustomCloudUrl(e.target.value)}
+                          placeholder="wss://... hoặc https://..."
+                          className="flex-1 bg-slate-50 border border-slate-300 text-xs font-mono text-slate-800 px-2.5 py-1.5 rounded-lg outline-none focus:border-blue-500 focus:bg-white transition"
+                        />
+                        <button 
+                          onClick={() => handleCopy(currentQrValue)}
+                          className="flex items-center justify-center px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1"
+                        >
+                          {copiedMain ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Thông báo kết nối thành công */}
+            {onlineWS > 0 && (
+              <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">
+                  Tuyệt vời! Đã có {onlineWS} điện thoại kết nối thành công. Mọi lượt quét mã từ điện thoại sẽ đồng bộ tức thời lên màn hình PC này!
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* LỰA CHỌN: TẢI FILE APK CÀI ĐẶT TRỰC TIẾP (ANDROID) */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-600/30 rounded-2xl p-4 shadow-xs">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                    Lựa chọn 1
+                    File APK
                   </span>
                   <h3 className="font-bold text-slate-900 text-sm">
                     Tải File APK Cài Đặt Trực Tiếp (Android)
@@ -139,7 +424,7 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             <a
               href={downloadUrl || "https://github.com/Lio0307-Oanh-PhiLip/StockSync-Hub/releases"}
               download="StockSync.apk"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>{isLatestOnGitHub ? 'Tải Ngay StockSync-v1.2.8.apk' : `Tải APK Hiện Có (${remoteTag})`}</span>
@@ -148,13 +433,10 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             {!isLatestOnGitHub && (
               <div className="mt-2.5 p-3 bg-amber-50/90 border border-amber-300 rounded-xl text-xs text-amber-950 space-y-1">
                 <p className="font-bold flex items-center gap-1.5 text-amber-900">
-                  <span>⚡</span> Chưa có bản APK v1.2.8 trên GitHub?
+                  <span>⚡</span> Đẩy lên GitHub để nhận file APK v1.2.8:
                 </p>
                 <p className="text-slate-700 leading-relaxed">
-                  Bản code <b>v1.2.8</b> đã hoàn thành trong AI Studio. Để GitHub tạo file <b>StockSync-v1.2.8.apk</b> mới nhất:
-                </p>
-                <p className="text-blue-800 font-semibold">
-                  👉 Hãy nhấn nút <b>"Push changes to GitHub"</b> ở bảng điều khiển bên phải Google AI Studio. GitHub Actions sẽ tự động đóng gói file APK mới chỉ sau ~2 phút!
+                  Bản code <b>v1.2.8</b> đã hoàn thành trong AI Studio. Hãy nhấn nút <b>"Push changes to GitHub"</b> ở thanh công cụ góc phải. GitHub Actions sẽ tự động biên dịch và tạo file <b>StockSync-v1.2.8.apk</b> mới nhất.
                 </p>
               </div>
             )}
@@ -172,91 +454,29 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
             </div>
           </div>
 
-          {/* LỰA CHỌN 2: CÀI ĐẶT NHANH TỪ TRÌNH DUYỆT (NẾU HỖ TRỢ) */}
+          {/* LỰA CHỌN PWA: CÀI ĐẶT NHANH TỪ TRÌNH DUYỆT (NẾU HỖ TRỢ) */}
           {isInstallable && (
             <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 shadow-xs">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                  Lựa chọn 2
+                  PWA App
                 </span>
                 <h3 className="font-bold text-emerald-950 text-sm">
                   Cài Đặt Nhanh Từ Trình Duyệt
                 </h3>
               </div>
               <p className="text-xs text-emerald-800 mb-3">
-                Trình duyệt của bạn hỗ trợ cài ứng dụng trực tiếp ra màn hình chính mà không cần tải file ngoài.
+                Trình duyệt hỗ trợ cài ứng dụng trực tiếp ra màn hình chính điện thoại mà không cần tải file ngoài.
               </p>
               <button
                 onClick={handleNativeInstall}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs rounded-xl shadow-sm transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs rounded-xl shadow-sm transition cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Cài Đặt Ngay Ra Màn Hình Chính</span>
               </button>
             </div>
           )}
-
-          {/* KHU VỰC QUÉT QR CODE / ĐỒNG BỘ 2 CHIỀU VỚI APP */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-blue-600" />
-                Mã QR Kết Nối & Đồng Bộ 2 Chiều:
-              </h4>
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                Live 2-Way Hub
-              </span>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="bg-white p-2.5 rounded-xl shadow-xs border border-slate-200 shrink-0 text-center">
-                <QRCodeSVG 
-                  value={currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws'} 
-                  size={130}
-                  level="M"
-                  includeMargin={false}
-                  fgColor="#0f172a"
-                />
-                <span className="block text-[10px] text-slate-500 font-semibold mt-1">Quét bằng App để kết nối</span>
-              </div>
-
-              <div className="flex-1 space-y-2.5 w-full">
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Mở ứng dụng <b>StockSync Scanner</b> trên điện thoại, hướng camera vào mã QR bên cạnh. Ứng dụng sẽ tự động nhận diện và kết nối đồng bộ 2 chiều với PC.
-                </p>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] font-semibold text-slate-500">Địa chỉ WebSocket Server (PC):</span>
-                  <div className="flex items-center gap-1.5">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws'} 
-                      className="flex-1 bg-white border border-slate-200 text-xs font-mono text-slate-700 px-3 py-2 rounded-lg outline-none select-all truncate"
-                    />
-                    <button 
-                      onClick={() => handleCopy(currentUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws')}
-                      className="flex items-center justify-center px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition shrink-0 text-xs font-semibold gap-1 active:scale-95"
-                      title="Sao chép link WebSocket"
-                    >
-                      {copiedMain ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      <span>{copiedMain ? 'Đã chép' : 'Chép'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                <a
-                  href={currentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Mở giao diện Web trong cửa sổ riêng</span>
-                </a>
-              </div>
-            </div>
-          </div>
 
         </div>
 
@@ -274,3 +494,4 @@ export const DeviceConnectModal: React.FC<DeviceConnectModalProps> = ({ isOpen, 
     </div>
   );
 };
+

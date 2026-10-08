@@ -1,9 +1,25 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
+
+function getLocalIpList(): string[] {
+  const interfaces = os.networkInterfaces();
+  const results: string[] = [];
+  for (const devName of Object.keys(interfaces)) {
+    const ifaceList = interfaces[devName];
+    if (!ifaceList) continue;
+    for (const iface of ifaceList) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        results.push(iface.address);
+      }
+    }
+  }
+  return results;
+}
 
 function cleanBarcode(str: string | number | undefined | null): string {
   if (str === undefined || str === null) return '';
@@ -476,6 +492,17 @@ async function startServer() {
       version: serverState.version,
       onlineSSE: sseClients.size,
       onlineWS: wsClients.size
+    });
+  });
+
+  app.get('/api/network-info', (req, res) => {
+    const ips = getLocalIpList();
+    const host = req.get('host') || 'localhost:3000';
+    res.json({
+      port: PORT,
+      host,
+      localIps: ips,
+      preferredWsUrl: ips.length > 0 ? `ws://${ips[0]}:${PORT}/ws` : `ws://${host}/ws`
     });
   });
 

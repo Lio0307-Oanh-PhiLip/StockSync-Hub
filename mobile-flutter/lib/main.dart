@@ -375,7 +375,9 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
     _isReconnecting = true;
 
     try {
-      _channel?.sink.close();
+      try {
+        _channel?.sink.close();
+      } catch (_) {}
       _channel = WebSocketChannel.connect(Uri.parse(_serverUrl));
 
       _channel!.stream.listen(
@@ -385,6 +387,10 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
             setState(() {
               _isConnected = true;
             });
+            // Request full updated state on fresh connection
+            try {
+              _channel?.sink.add(json.encode({'type': 'REQUEST_FULL_STATE'}));
+            } catch (_) {}
           }
           _handleServerMessage(message);
         },
@@ -395,6 +401,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
               _isConnected = false;
             });
           }
+          debugPrint('[WebSocket Error]: $err');
         },
         onDone: () {
           _isReconnecting = false;
@@ -412,6 +419,7 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
           _isConnected = false;
         });
       }
+      debugPrint('[WebSocket Connect Exception]: $e');
     }
   }
 
@@ -534,22 +542,34 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
   void _onDetect(BarcodeCapture capture) {
     final List<Barcode> barcodes = capture.barcodes;
     for (final barcode in barcodes) {
-      final String? code = barcode.rawValue?.trim();
-      if (code != null && code.isNotEmpty && code != _lastScannedCode) {
+      final String? raw = barcode.rawValue?.trim();
+      if (raw != null && raw.isNotEmpty && raw != _lastScannedCode) {
         // Smart Check: is this a connection QR code for PC Hub?
-        if (code.startsWith('http://') || code.startsWith('https://') || code.startsWith('ws://') || code.startsWith('wss://') || code.contains('/ws')) {
-          _handleScannedConnectionUrl(code);
+        final isUrl = raw.startsWith('http://') ||
+                      raw.startsWith('https://') ||
+                      raw.startsWith('ws://') ||
+                      raw.startsWith('wss://') ||
+                      raw.contains('/ws') ||
+                      raw.startsWith('stocksync://') ||
+                      (raw.contains(':3000') && !raw.contains(' '));
+        final isJsonConnection = raw.startsWith('{') && (raw.contains('ws') || raw.contains('url') || raw.contains('server') || raw.contains('stocksync'));
+
+        if (isUrl || isJsonConnection) {
+          setState(() {
+            _lastScannedCode = raw;
+          });
+          _handleScannedConnectionUrl(raw);
           break;
         }
 
         setState(() {
-          _lastScannedCode = code;
+          _lastScannedCode = raw;
         });
 
         // Search & match item locally immediately
-        _performLocalScan(code);
+        _performLocalScan(raw);
         // Send scan to PC Server (via WebSocket & HTTP fallback)
-        _sendScanToServer(code);
+        _sendScanToServer(raw);
 
         break;
       }
@@ -609,51 +629,88 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
     _saveItemsToCache();
   }
 
-  void _handleScannedConnectionUrl(String url) {
-    String wsUrl = url.trim();
-    if (wsUrl.startsWith('http://')) {
-      wsUrl = wsUrl.replaceFirst('http://', 'ws://');
-    } else if (wsUrl.startsWith('https://')) {
+  void _handleScannedConnectionUrl(String raw) {
+    String input = raw.trim();
+
+    // 1. Support JSON QR Code format
+    if (input.startsWith('{')) {
+      try {
+        final map = json.decode(input);
+        input = (map['ws'] ?? map['url'] ?? map['server'] ?? input).toString().trim();
+      } catch (_) {}
+    }
+
+    // 2. Remove custom protocol prefix if any (stocksync://)
+    if (input.startsWith('stocksync://connect?url=')) {
+      input = Uri.decodeComponent(input.substring(25));
+    } else if (input.startsWith('stocksync://')) {
+      input = input.substring(12);
+    }
+
+    // 3. Strip query parameters, hash and trailing slashes
+    input = input.split('?')[0].split('#')[0].trim();
+    while (input.endsWith('/')) {
+      input = input.substring(0, input.length - 1);
+    }
+
+    // 4. Normalize to WebSocket URL
+    String wsUrl = input;
+    if (wsUrl.startsWith('https://')) {
       wsUrl = wsUrl.replaceFirst('https://', 'wss://');
+    } else if (wsUrl.startsWith('http://')) {
+      wsUrl = wsUrl.replaceFirst('http://', 'ws://');
+    } else if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+      wsUrl = 'ws://$wsUrl';
     }
+
     if (!wsUrl.endsWith('/ws')) {
-      wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
+      wsUrl = '$wsUrl/ws';
     }
+
+    // 5. Force reset reconnection flags and disconnect old channel
+    _isReconnecting = false;
+    try {
+      _channel?.sink.close();
+      _channel = null;
+    } catch (_) {}
 
     setState(() {
       _serverUrl = wsUrl;
       _isConnected = false;
     });
+
     _saveServerUrl(wsUrl);
     _connectWebSocket();
     _syncViaHttp(showFeedback: true);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('⚡ Đã kết nối với PC Hub: $wsUrl'),
+        content: Row(
+          children: [
+            const Icon(Icons.qr_code_2_rounded, color: Colors.white, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('✅ Đã nhận mã QR kết nối PC!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(wsUrl, style: const TextStyle(fontSize: 11, color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF2563EB),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
     HapticFeedback.mediumImpact();
   }
 
   void _updateAndConnectServerUrl(String newUrl) {
-    setState(() {
-      _serverUrl = newUrl;
-      _isConnected = false;
-    });
-    _saveServerUrl(newUrl);
-    _connectWebSocket();
-    _syncViaHttp(showFeedback: true);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đang kết nối tới: $newUrl'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    _handleScannedConnectionUrl(newUrl);
   }
 
   void _manualToggleItemScan(InventoryItem item) {
@@ -1569,10 +1626,44 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
-              hintText: 'wss://... hoặc ws://192.168.x.x:3000/ws',
+              hintText: 'ws://192.168.x.x:3000/ws hoặc wss://...',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
               prefixIcon: const Icon(Icons.link, color: Color(0xFF64748B)),
             ),
+          ),
+          const SizedBox(height: 8),
+
+          // Quick Preset Buttons
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.wifi, size: 14, color: Color(0xFF2563EB)),
+                label: const Text('Wi-Fi 192.168.1.x', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                backgroundColor: const Color(0xFFEFF6FF),
+                onPressed: () {
+                  urlCtrl.text = "ws://192.168.1.100:3000/ws";
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.cloud_outlined, size: 14, color: Color(0xFF059669)),
+                label: const Text('Cloud Server', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                backgroundColor: const Color(0xFFECFDF5),
+                onPressed: () {
+                  const defaultCloud = "wss://ais-pre-raxzxcsor7d6q2kcn7kvxc-98361429439.asia-southeast1.run.app/ws";
+                  urlCtrl.text = defaultCloud;
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.computer, size: 14, color: Color(0xFF7C3AED)),
+                label: const Text('Emulator (10.0.2.2)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                backgroundColor: const Color(0xFFF5F3FF),
+                onPressed: () {
+                  urlCtrl.text = "ws://10.0.2.2:3000/ws";
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 10),
 
@@ -1612,6 +1703,30 @@ class _MainSyncShellState extends State<MainSyncShell> with SingleTickerProvider
               ),
             ],
           ),
+
+          if (!_isConnected) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('💡 Hướng Dẫn Kết Nối Với Máy Tính PC:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E))),
+                  SizedBox(height: 4),
+                  Text('1. Điện thoại và PC cần kết nối chung một mạng Wi-Fi (hoặc phát điểm truy cập Hotspot từ điện thoại).', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                  SizedBox(height: 2),
+                  Text('2. Trên PC, mở mục "Cài đặt App" -> Quét mã QR bằng camera app StockSync.', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                  SizedBox(height: 2),
+                  Text('3. Hoặc xem IPv4 của PC (bằng lệnh ipconfig trên Windows) và nhập dạng: ws://[IP-PC]:3000/ws.', style: TextStyle(fontSize: 11, color: Color(0xFF78350F))),
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 24),
           const Divider(),
