@@ -1,6 +1,6 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -50,9 +50,6 @@ android {
     }
 
     signingConfigs {
-        debug {
-            // standard debug
-        }
         release {
             storeFile file("stocksync-release.keystore")
             storePassword "stocksync123"

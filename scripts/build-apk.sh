@@ -399,9 +399,12 @@ fi
 # -----------------------------------------------------------------------------
 # Hoàn tất xuất xưởng
 # -----------------------------------------------------------------------------
-mkdir -p "$APPLET_DIR"/public
+mkdir -p "$APPLET_DIR"/public/download
 cp "$WORK"/bin/aligned.apk "$APPLET_DIR"/public/StockSync.apk
+cp "$WORK"/bin/aligned.apk "$APPLET_DIR"/public/STOCKSYNC-HUB-Android.apk
+cp "$WORK"/bin/aligned.apk "$APPLET_DIR"/public/download/StockSync.apk
+cp "$WORK"/bin/aligned.apk "$APPLET_DIR"/public/download/STOCKSYNC-HUB-Android.apk
 
 echo "=================================================="
-echo "🎉 BUILD APK THÀNH CÔNG: public/StockSync.apk (v$VERSION_NAME)"
+echo "🎉 BUILD APK THÀNH CÔNG: public/download/STOCKSYNC-HUB-Android.apk (v$VERSION_NAME)"
 echo "=================================================="

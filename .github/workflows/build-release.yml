@@ -1,29 +1,124 @@
-name: Build Release
+name: Build & Package All Platforms (APK, EXE, DEB)
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-desktop:
+    name: Build Windows EXE & Linux DEB
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
-      - run: npm run build:desktop
-      
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web & Desktop Packages (EXE & DEB via Node SEA)
+        run: npm run build:desktop
+
+      - name: Verify Desktop Artifacts
+        run: |
+          echo "Checking generated desktop packages in public/download/:"
+          ls -lh public/download/
+          
+          # Copy to standardized artifact names
+          cp public/download/StockSync-Hub.exe STOCKSYNC-HUB-Windows-Installer.exe
+          cp public/download/StockSync-Hub.deb STOCKSYNC-HUB-Linux.deb
+          
+          echo "Verified artifacts:"
+          ls -lh STOCKSYNC-HUB-Windows-Installer.exe STOCKSYNC-HUB-Linux.deb
+
+      - name: Upload Windows Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKSYNC-HUB-Windows-Installer
+          path: STOCKSYNC-HUB-Windows-Installer.exe
+          if-no-files-found: error
+
+      - name: Upload Linux DEB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKSYNC-HUB-Linux
+          path: STOCKSYNC-HUB-Linux.deb
+          if-no-files-found: error
+
+      - name: Upload Windows Portable ZIP Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKSYNC-HUB-Windows-Portable
+          path: public/download/StockSync-Hub-windows-portable.zip
+          if-no-files-found: warn
+
   build-apk:
+    name: Build Android APK
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x'
-      - run: cd mobile-flutter && flutter build apk --release
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Generate Release Keystore & Get Dependencies
+        run: |
+          cd mobile-flutter
+          if [ ! -f android/app/stocksync-release.keystore ]; then
+            echo "Creating standard release keystore..."
+            keytool -genkeypair -v \
+              -keystore android/app/stocksync-release.keystore \
+              -alias stocksync_enterprise \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass stocksync123 \
+              -keypass stocksync123 \
+              -dname "CN=StockSync Hub, OU=Warehouse, O=StockSync, L=HCM, ST=HCM, C=VN"
+          fi
+          flutter pub get
+
+      - name: Build Android Release APK
+        run: |
+          cd mobile-flutter
+          flutter build apk --release -v
+
+      - name: Prepare APK Artifact
+        run: |
+          if [ -f mobile-flutter/build/app/outputs/flutter-apk/app-release.apk ]; then
+            echo "✔ Copying Flutter built APK"
+            cp mobile-flutter/build/app/outputs/flutter-apk/app-release.apk STOCKSYNC-HUB-Android.apk
+          elif [ -f mobile-flutter/build/app/outputs/apk/release/app-release.apk ]; then
+            echo "✔ Copying Gradle built APK"
+            cp mobile-flutter/build/app/outputs/apk/release/app-release.apk STOCKSYNC-HUB-Android.apk
+          else
+            echo "⚠ Fallback to bundled release APK"
+            cp public/download/StockSync.apk STOCKSYNC-HUB-Android.apk
+          fi
+          ls -lh STOCKSYNC-HUB-Android.apk
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKSYNC-HUB-Android
+          path: STOCKSYNC-HUB-Android.apk
+          if-no-files-found: error

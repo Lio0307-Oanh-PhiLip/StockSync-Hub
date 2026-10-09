@@ -37,10 +37,10 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Selected release tag: $TAG"
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
@@ -68,15 +68,28 @@ jobs:
         run: |
           flutter build apk --release -v
 
-
       - name: Prepare Release Artifacts
         run: |
           mkdir -p ../dist-apk
-          cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync.apk
-          TAG_VAL="${{ steps.tag_info.outputs.tag }}"
-          cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync-${TAG_VAL}.apk
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync.apk
+            cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/STOCKSYNC-HUB-Android.apk
+            TAG_VAL="${{ steps.tag_info.outputs.tag }}"
+            cp build/app/outputs/flutter-apk/app-release.apk ../dist-apk/StockSync-${TAG_VAL}.apk
+          elif [ -f ../public/download/StockSync.apk ]; then
+            cp ../public/download/StockSync.apk ../dist-apk/StockSync.apk
+            cp ../public/download/StockSync.apk ../dist-apk/STOCKSYNC-HUB-Android.apk
+          fi
+          ls -lh ../dist-apk/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOCKSYNC-HUB-Android
+          path: dist-apk/STOCKSYNC-HUB-Android.apk
 
       - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           name: "StockSync Hub ${{ steps.tag_info.outputs.tag }} Live Sync"
@@ -84,6 +97,7 @@ jobs:
           generate_release_notes: true
           files: |
             dist-apk/StockSync.apk
+            dist-apk/STOCKSYNC-HUB-Android.apk
             dist-apk/StockSync-*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
