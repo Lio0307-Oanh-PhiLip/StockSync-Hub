@@ -506,8 +506,8 @@ async function startServer() {
     try {
       ws.send(JSON.stringify({
         type: 'INIT_STATE',
-        payload: serverState,
-        version: serverState.version,
+        payload: multiStore,
+        version: getActivePeriod().version,
         timestamp: Date.now()
       }));
     } catch (err) {

@@ -285,6 +285,7 @@ export default function App() {
     // 2. Start Real-time SSE Sync stream from Cloud Server
     const stopRealtimeSync = startRealtimeSync({
       onFullStateSync: (data) => {
+        if (!data || !Array.isArray(data.iw) || !Array.isArray(data.oow)) return;
         setDataIW(data.iw);
         setDataOOW(data.oow);
         if (data.sourceInfo) setSyncSourceInfo(data.sourceInfo);
@@ -299,6 +300,7 @@ export default function App() {
         );
       },
       onScanPerformed: ({ item }) => {
+        if (!item) return;
         const updater = (list: InventoryItem[]) =>
           list.map(it => it.id === item.id ? { ...it, daQuet: item.daQuet, trangThai: item.trangThai, lastScannedAt: item.lastScannedAt } : it);
         setDataIW(prev => updater(prev));
@@ -310,12 +312,12 @@ export default function App() {
           setDataIW(curIW => {
             setDataOOW(curOOW => {
               const all = [...curIW, ...curOOW];
-              const sameMaLK = all.filter(it => it.maLK === item.maLK && it.bhDv === item.bhDv);
+              const sameMaLK = all.filter(it => it && it.maLK === item.maLK && it.bhDv === item.bhDv);
               setActiveScanTarget({
                 item,
                 totalForThisMaLK: {
-                  required: sameMaLK.reduce((a, b) => a + b.slg, 0),
-                  scanned: sameMaLK.reduce((a, b) => a + b.daQuet, 0),
+                  required: sameMaLK.reduce((a, b) => a + (b.slg || 0), 0),
+                  scanned: sameMaLK.reduce((a, b) => a + (b.daQuet || 0), 0),
                   completedROs: sameMaLK.filter(it => it.daQuet >= it.slg).map(it => it.soRO),
                   pendingROs: sameMaLK.filter(it => it.daQuet < it.slg).map(it => it.soRO)
                 }

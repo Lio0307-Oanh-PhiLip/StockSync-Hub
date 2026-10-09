@@ -63,7 +63,7 @@ jobs:
           fi
 
       - name: Build APK
-        run: flutter build apk --release --split-per-abi=false
+        run: flutter build apk --release
 
       - name: Prepare Release Artifacts
         run: |
