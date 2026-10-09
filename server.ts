@@ -242,17 +242,58 @@ function generateInitialState(): ServerState {
   };
 }
 
-// In-memory state and disk persistence
-let serverState: ServerState;
+// Multi-Period Store Types
+interface InventoryPeriod {
+  inventoryId: string;
+  name: string;
+  period: string;
+  createdAt: string;
+  updatedAt: string;
+  status: 'active' | 'archived';
+  version: number;
+  sourceInfo: ServerSyncSourceInfo;
+  iw: ServerInventoryItem[];
+  oow: ServerInventoryItem[];
+}
 
-function loadPersistedState(): ServerState {
+interface MultiPeriodStore {
+  activeInventoryId: string;
+  periods: InventoryPeriod[];
+}
+
+function loadPersistedMultiStore(): MultiPeriodStore {
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.iw) && Array.isArray(parsed.oow)) {
-        console.log(`[Storage] Loaded ${parsed.iw.length + parsed.oow.length} items from disk (version ${parsed.version})`);
+      if (parsed && Array.isArray(parsed.periods) && parsed.activeInventoryId) {
+        console.log(`[Storage] Loaded multi-period store with ${parsed.periods.length} periods.`);
         return parsed;
+      }
+      if (parsed && Array.isArray(parsed.iw) && Array.isArray(parsed.oow)) {
+        console.log(`[Storage] Migrating flat store (${parsed.iw.length + parsed.oow.length} items) to multi-period...`);
+        try {
+          fs.copyFileSync(DB_FILE, DB_FILE + '.bak');
+          console.log('[Storage] Created backup at inventory_store.json.bak');
+        } catch (e) {}
+        const defaultPeriod: InventoryPeriod = {
+          inventoryId: 'inv-default-01',
+          name: parsed.sourceInfo?.name || 'Kho xác chuẩn tháng 8/2026',
+          period: 'Tháng 8/2026',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'active',
+          version: parsed.version || 1,
+          sourceInfo: parsed.sourceInfo || { name: 'Default', sourceType: 'sample_data', rowCount: parsed.iw.length + parsed.oow.length, version: 1 },
+          iw: parsed.iw,
+          oow: parsed.oow
+        };
+        const multi: MultiPeriodStore = {
+          activeInventoryId: 'inv-default-01',
+          periods: [defaultPeriod]
+        };
+        saveStoreToDisk(multi);
+        return multi;
       }
     }
   } catch (err) {
@@ -260,25 +301,79 @@ function loadPersistedState(): ServerState {
   }
 
   const initial = generateInitialState();
-  saveStateToDisk(initial);
-  return initial;
+  const defaultPeriod: InventoryPeriod = {
+    inventoryId: 'inv-default-01',
+    name: initial.sourceInfo.name,
+    period: 'Tháng 8/2026',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'active',
+    version: initial.version,
+    sourceInfo: initial.sourceInfo,
+    iw: initial.iw,
+    oow: initial.oow
+  };
+  const multi: MultiPeriodStore = {
+    activeInventoryId: 'inv-default-01',
+    periods: [defaultPeriod]
+  };
+  saveStoreToDisk(multi);
+  return multi;
 }
 
-function saveStateToDisk(state: ServerState) {
+function saveStoreToDisk(store: MultiPeriodStore) {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(state), 'utf-8');
+    const tempFile = DB_FILE + '.tmp';
+    fs.writeFileSync(tempFile, JSON.stringify(store, null, 2), 'utf-8');
+    fs.renameSync(tempFile, DB_FILE);
   } catch (err) {
-    console.error('[Storage] Error saving to disk:', err);
+    console.error('[Storage] Error saving store to disk atomically:', err);
   }
 }
 
-serverState = loadPersistedState();
+let multiStore: MultiPeriodStore = loadPersistedMultiStore();
+
+function getActivePeriod(): InventoryPeriod {
+  let p = multiStore.periods.find(item => item.inventoryId === multiStore.activeInventoryId);
+  if (!p && multiStore.periods.length > 0) {
+    p = multiStore.periods[0];
+    multiStore.activeInventoryId = p.inventoryId;
+  }
+  return p!;
+}
+
+function getPeriodById(inventoryId?: string): { period?: InventoryPeriod; error?: string } {
+  if (!inventoryId) {
+    return { period: getActivePeriod() };
+  }
+  const found = multiStore.periods.find(p => p.inventoryId === inventoryId);
+  if (!found) {
+    return { error: `Kỳ kiểm kê với ID "${inventoryId}" không tồn tại hoặc không hợp lệ.` };
+  }
+  return { period: found };
+}
+
+// Compatibility proxy for serverState
+const serverState = new Proxy({} as ServerState, {
+  get(_target, prop) {
+    const active = getActivePeriod();
+    return (active as any)[prop];
+  },
+  set(_target, prop, value) {
+    const active = getActivePeriod();
+    (active as any)[prop] = value;
+    return true;
+  }
+});
 
 // Connected Server-Sent Events (SSE) clients (PC)
 const sseClients = new Set<Response>();
 
 // Connected WebSocket clients (Mobile APK)
 const wsClients = new Set<WebSocket>();
+
+// Idempotency event tracking for deduplication
+const processedEvents = new Map<string, { timestamp: number; result: any }>();
 
 function broadcastSync(event: { type: string; payload: any; version: number }) {
   // Broadcast to SSE (PC)
@@ -304,7 +399,16 @@ function broadcastSync(event: { type: string; payload: any; version: number }) {
   });
 }
 
-function processScan(rawCode: string, clientId: string = 'system') {
+function processScan(rawCode: string, clientId: string = 'system', eventId?: string, inventoryId?: string) {
+  const pCheck = getPeriodById(inventoryId);
+  if (pCheck.error) return { error: pCheck.error };
+  const targetPeriod = pCheck.period!;
+
+  if (eventId && processedEvents.has(eventId)) {
+    console.log(`[Idempotency] Duplicate event skipped: ${eventId}`);
+    return processedEvents.get(eventId)!.result;
+  }
+
   const clean = cleanBarcode(rawCode);
   if (!clean) return { error: 'Mã vạch không hợp lệ!' };
 
@@ -312,7 +416,7 @@ function processScan(rawCode: string, clientId: string = 'system') {
   let listType: 'IW' | 'OOW' = 'OOW';
 
   // Search in OOW first, then IW
-  for (const item of serverState.oow) {
+  for (const item of targetPeriod.oow) {
     const k1 = cleanBarcode(item.cotSP);
     const k2 = cleanBarcode(`${item.soRO}${item.maLK}`);
     const soROClean = cleanBarcode(item.soRO);
@@ -326,7 +430,7 @@ function processScan(rawCode: string, clientId: string = 'system') {
   }
 
   if (!matchedItem) {
-    for (const item of serverState.iw) {
+    for (const item of targetPeriod.iw) {
       const k1 = cleanBarcode(item.cotSP);
       const k2 = cleanBarcode(`${item.soRO}${item.maLK}`);
       const soROClean = cleanBarcode(item.soRO);
@@ -340,7 +444,7 @@ function processScan(rawCode: string, clientId: string = 'system') {
     }
   }
 
-  if (!matchedItem) return { error: 'Không tìm thấy linh kiện!' };
+  if (!matchedItem) return { error: 'Không tìm thấy linh kiện trong kỳ này!' };
 
   // Update scan count
   matchedItem.daQuet = Math.min(matchedItem.slg, matchedItem.daQuet + 1);
@@ -353,17 +457,28 @@ function processScan(rawCode: string, clientId: string = 'system') {
     method: clientId
   });
 
-  serverState.version += 1;
-  serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
-  saveStateToDisk(serverState);
+  targetPeriod.version += 1;
+  targetPeriod.updatedAt = new Date().toISOString();
+  saveStoreToDisk(multiStore);
 
   broadcastSync({
     type: 'SCAN_PERFORMED',
-    payload: { item: matchedItem, listType, version: serverState.version },
-    version: serverState.version
+    payload: { item: matchedItem, listType, version: targetPeriod.version, inventoryId: targetPeriod.inventoryId },
+    version: targetPeriod.version
   });
 
-  return { success: true, item: matchedItem, version: serverState.version };
+  const resObj = { success: true, item: matchedItem, version: targetPeriod.version, inventoryId: targetPeriod.inventoryId };
+  if (eventId) {
+    processedEvents.set(eventId, { timestamp: Date.now(), result: resObj });
+    if (processedEvents.size > 1000) {
+      const now = Date.now();
+      for (const [key, val] of processedEvents.entries()) {
+        if (now - val.timestamp > 300000) processedEvents.delete(key);
+      }
+    }
+  }
+
+  return resObj;
 }
 
 async function startServer() {
@@ -406,8 +521,9 @@ async function startServer() {
 
         if (data.type === 'SCAN_EVENT') {
           const barcode = data.barcode || data.scannedCode;
+          const eventId = data.eventId || data.idempotencyKey;
           if (barcode) {
-            const scanResult = processScan(barcode, 'mobile_apk');
+            const scanResult = processScan(barcode, 'mobile_apk', eventId);
             try {
               ws.send(JSON.stringify({
                 type: 'SCAN_ACK',
@@ -618,8 +734,61 @@ async function startServer() {
     res.json({ success: true, version: serverState.version });
   });
 
+  app.get('/api/sync/periods', (req, res) => {
+    res.json({
+      activeInventoryId: multiStore.activeInventoryId,
+      periods: multiStore.periods.map(p => ({
+        inventoryId: p.inventoryId,
+        name: p.name,
+        period: p.period,
+        status: p.status,
+        version: p.version,
+        rowCount: p.iw.length + p.oow.length,
+        updatedAt: p.updatedAt
+      }))
+    });
+  });
+
+  app.post('/api/sync/periods', (req, res) => {
+    const { name, period } = req.body;
+    if (!name) return res.status(400).json({ error: 'Tên kỳ kiểm kê không được để trống' });
+
+    const newId = `inv-${Date.now()}`;
+    const newPeriod: InventoryPeriod = {
+      inventoryId: newId,
+      name: name.trim(),
+      period: period || 'Đợt mới',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'active',
+      version: 1,
+      sourceInfo: { name: name.trim(), sourceType: 'sample_data', lastSyncedAt: new Date().toLocaleTimeString('vi-VN'), rowCount: 0, iwCount: 0, oowCount: 0, version: 1 },
+      iw: [],
+      oow: []
+    };
+
+    multiStore.periods.push(newPeriod);
+    multiStore.activeInventoryId = newId;
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'PERIOD_CREATED', payload: newPeriod, version: newPeriod.version });
+    res.json({ success: true, activeInventoryId: multiStore.activeInventoryId, periods: multiStore.periods });
+  });
+
+  app.put('/api/sync/periods/active', (req, res) => {
+    const { inventoryId } = req.body;
+    const pCheck = getPeriodById(inventoryId);
+    if (pCheck.error) return res.status(400).json({ error: pCheck.error });
+
+    multiStore.activeInventoryId = inventoryId;
+    saveStoreToDisk(multiStore);
+    const active = getActivePeriod();
+    broadcastSync({ type: 'PERIOD_SWITCHED', payload: { activeInventoryId: inventoryId }, version: active.version });
+    res.json({ success: true, activeInventoryId: inventoryId, activePeriod: active });
+  });
+
   app.post('/api/sync/scan', (req, res) => {
-    const result = processScan(req.body.scannedCode || req.body.barcode, req.body.clientId || 'pc_web');
+    const { scannedCode, barcode, clientId, eventId, idempotencyKey, inventoryId } = req.body;
+    const result = processScan(scannedCode || barcode, clientId || 'pc_web', eventId || idempotencyKey, inventoryId);
     if (result.error) return res.status(400).json(result);
     res.json(result);
   });

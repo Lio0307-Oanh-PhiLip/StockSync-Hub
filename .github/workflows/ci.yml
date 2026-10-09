@@ -1,0 +1,32 @@
+name: StockSync CI & Automated Testing
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Synchronization & Idempotency Tests
+        run: node test-sync.js
+
+      - name: Run Dynamic Inventory Periods Tests
+        run: node test-dynamic-inventory.js
+
+      - name: Build PC App & Bundle Server
+        run: npm run build
