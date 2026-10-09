@@ -6,9 +6,9 @@
       "name": "Kho xác chuẩn v1.3.0 (HCM 4 Phú Lâm - 366 linh kiện)",
       "period": "Tháng 8/2026",
       "createdAt": "2026-10-09T04:15:01.873Z",
-      "updatedAt": "2026-10-09T04:27:19.731Z",
+      "updatedAt": "2026-10-09T06:51:08.561Z",
       "status": "active",
-      "version": 132,
+      "version": 133,
       "sourceInfo": {
         "name": "Kho xác chuẩn v1.3.0 (HCM 4 Phú Lâm - 366 linh kiện)",
         "sourceType": "sample_data",
@@ -34,7 +34,7 @@
           "slg": 1,
           "daQuet": 1,
           "remark": "Bảo hành chính hãng",
-          "lastScannedAt": "04:27:19",
+          "lastScannedAt": "06:51:08",
           "scanHistory": [
             {
               "timestamp": "04:15:18",
@@ -43,6 +43,11 @@
             },
             {
               "timestamp": "04:27:19",
+              "barcode": "VN001021-AS26080200014905106",
+              "method": "pc_web"
+            },
+            {
+              "timestamp": "06:51:08",
               "barcode": "VN001021-AS26080200014905106",
               "method": "pc_web"
             }

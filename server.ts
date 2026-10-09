@@ -584,13 +584,13 @@ async function startServer() {
           });
 
           if (foundItem) {
-            serverState.version += 1;
-            serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
-            saveStateToDisk(serverState);
+            getActivePeriod().version += 1;
+            getActivePeriod().updatedAt = new Date().toISOString();
+            saveStoreToDisk(multiStore);
             broadcastSync({
               type: 'SCAN_REMOVED',
-              payload: { itemId, item: foundItem, version: serverState.version },
-              version: serverState.version
+              payload: { itemId, item: foundItem, version: getActivePeriod().version },
+              version: getActivePeriod().version
             });
           }
         }
@@ -723,15 +723,16 @@ async function startServer() {
     const { iw, oow, sourceInfo } = req.body;
     if (!Array.isArray(iw) || !Array.isArray(oow)) return res.status(400).json({ error: 'Invalid list' });
 
-    serverState.version += 1;
-    serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
-    serverState.sourceInfo = { ...sourceInfo, lastSyncedAt: serverState.lastModified, version: serverState.version };
-    serverState.iw = iw;
-    serverState.oow = oow;
+    const active = getActivePeriod();
+    active.version += 1;
+    active.updatedAt = new Date().toISOString();
+    active.sourceInfo = { ...sourceInfo, lastSyncedAt: active.updatedAt, version: active.version, rowCount: iw.length + oow.length, iwCount: iw.length, oowCount: oow.length };
+    active.iw = iw;
+    active.oow = oow;
 
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
-    res.json({ success: true, version: serverState.version });
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: active, version: active.version });
+    res.json({ success: true, version: active.version });
   });
 
   app.get('/api/sync/periods', (req, res) => {
@@ -808,12 +809,13 @@ async function startServer() {
 
     if (!foundItem) return res.status(404).json({ error: 'Item not found' });
 
-    serverState.version += 1;
-    serverState.lastModified = new Date().toLocaleTimeString('vi-VN');
-    saveStateToDisk(serverState);
+    const active = getActivePeriod();
+    active.version += 1;
+    active.updatedAt = new Date().toISOString();
+    saveStoreToDisk(multiStore);
 
-    broadcastSync({ type: 'SCAN_REMOVED', payload: { itemId, item: foundItem, version: serverState.version }, version: serverState.version });
-    res.json({ success: true, version: serverState.version });
+    broadcastSync({ type: 'SCAN_REMOVED', payload: { itemId, item: foundItem, version: active.version }, version: active.version });
+    res.json({ success: true, version: active.version });
   });
 
   app.post('/api/sync/clear-scans', (req, res) => {
@@ -823,9 +825,11 @@ async function startServer() {
       it.lastScannedAt = undefined;
       it.scanHistory = [];
     });
-    serverState.version += 1;
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SCANS_CLEARED', payload: { version: serverState.version }, version: serverState.version });
+    const active = getActivePeriod();
+    active.version += 1;
+    active.updatedAt = new Date().toISOString();
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SCANS_CLEARED', payload: { version: active.version }, version: active.version });
     res.json({ success: true });
   });
 

@@ -61,9 +61,13 @@ jobs:
               -storepass stocksync123 -keypass stocksync123 \
               -dname "CN=StockSync Hub, OU=Warehouse, O=StockSync, L=HCM, ST=HCM, C=VN"
           fi
+          echo "Checking keystore existence:"
+          ls -l android/app/stocksync-release.keystore
 
       - name: Build APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release -v
+
 
       - name: Prepare Release Artifacts
         run: |
