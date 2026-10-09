@@ -831,24 +831,30 @@ async function startServer() {
 
   app.post('/api/sync/reset-standard', (req, res) => {
     const initialState = generateInitialState();
-    initialState.version = Math.max(serverState.version + 1, 130);
-    initialState.sourceInfo.version = initialState.version;
-    initialState.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
-    serverState = initialState;
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
-    res.json({ success: true, version: serverState.version });
+    const active = getActivePeriod();
+    active.version = Math.max(active.version + 1, 130);
+    active.sourceInfo.version = active.version;
+    active.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
+    active.iw = initialState.iw;
+    active.oow = initialState.oow;
+    active.updatedAt = new Date().toISOString();
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: active, version: active.version });
+    res.json({ success: true, version: active.version });
   });
 
   app.post('/api/sync/reset-default', (req, res) => {
     const initialState = generateInitialState();
-    initialState.version = Math.max(serverState.version + 1, 130);
-    initialState.sourceInfo.version = initialState.version;
-    initialState.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
-    serverState = initialState;
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
-    res.json({ success: true, version: serverState.version });
+    const active = getActivePeriod();
+    active.version = Math.max(active.version + 1, 130);
+    active.sourceInfo.version = active.version;
+    active.sourceInfo.name = 'Kho xác chuẩn v1.3.0 (366 linh kiện Phú Lâm)';
+    active.iw = initialState.iw;
+    active.oow = initialState.oow;
+    active.updatedAt = new Date().toISOString();
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: active, version: active.version });
+    res.json({ success: true, version: active.version });
   });
 
   app.post('/api/sync/push-from-pc', (req, res) => {
@@ -870,29 +876,28 @@ async function startServer() {
     serverState.iw = iw;
     serverState.oow = oow;
 
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: getActivePeriod(), version: serverState.version });
     res.json({ success: true, version: serverState.version, rowCount: iw.length + oow.length });
   });
 
   app.post('/api/sync/reset-empty', (req, res) => {
-    serverState = {
-      version: serverState.version + 1,
-      lastModified: new Date().toLocaleTimeString('vi-VN'),
-      sourceInfo: {
-        name: 'Trạng thái trống (Đã xóa)',
-        sourceType: 'sample_data',
-        lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-        rowCount: 0,
-        iwCount: 0,
-        oowCount: 0,
-        version: serverState.version + 1
-      },
-      iw: [],
-      oow: []
+    const active = getActivePeriod();
+    active.version += 1;
+    active.updatedAt = new Date().toISOString();
+    active.sourceInfo = {
+      name: 'Trạng thái trống (Đã xóa)',
+      sourceType: 'sample_data',
+      lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+      rowCount: 0,
+      iwCount: 0,
+      oowCount: 0,
+      version: active.version
     };
-    saveStateToDisk(serverState);
-    broadcastSync({ type: 'SYNC_FULL_STATE', payload: serverState, version: serverState.version });
+    active.iw = [];
+    active.oow = [];
+    saveStoreToDisk(multiStore);
+    broadcastSync({ type: 'SYNC_FULL_STATE', payload: active, version: active.version });
     res.json({ success: true, message: 'Server state cleared' });
   });
 
