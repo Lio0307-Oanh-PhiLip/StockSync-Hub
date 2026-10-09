@@ -1,0 +1,19 @@
+name: Windows Release
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run build
+      - name: Build Windows
+        run: |
+          npm install -g electron-builder
+          # Placeholder for actual build command based on project setup
+          echo "Windows build placeholder"

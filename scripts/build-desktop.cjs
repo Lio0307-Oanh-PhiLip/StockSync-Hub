@@ -269,6 +269,7 @@ exec "\${HERE}/usr/bin/stocksync-hub-bin" "\$@"
 
   const appImageToolPath = path.join(BUILD_DIR, 'appimage-tool', 'squashfs-root', 'AppRun');
   if (fs.existsSync(appImageToolPath)) {
+    fs.chmodSync(appImageToolPath, 0o755); // Add this line
     const appImageOut = path.join(DOWNLOAD_DIR, `StockSync-Hub-v${APP_VERSION}-linux-x64.AppImage`);
     execSync(`ARCH=x86_64 "${appImageToolPath}" "${appDir}" "${appImageOut}"`, { stdio: 'inherit' });
     fs.copyFileSync(appImageOut, path.join(DOWNLOAD_DIR, 'StockSync-Hub.AppImage'));

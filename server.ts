@@ -331,6 +331,12 @@ function saveStoreToDisk(store: MultiPeriodStore) {
   }
 }
 
+// Alias for client compatibility if needed
+function saveStateToDisk(state: any) {
+  console.log('[DEBUG] saveStateToDisk called');
+  saveStoreToDisk(state);
+}
+
 let multiStore: MultiPeriodStore = loadPersistedMultiStore();
 
 function getActivePeriod(): InventoryPeriod {
